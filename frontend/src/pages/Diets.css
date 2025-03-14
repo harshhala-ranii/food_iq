@@ -1,0 +1,18 @@
+/* Diets.css */
+
+.diets-page-wrapper {
+  /* display: flex; */
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  min-height: 100vh;
+  font-family: Arial, sans-serif;
+  opacity: 0;
+  animation: fadeIn 1s ease-in forwards; /* Add fade-in animation */
+}
+
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+  }
+}

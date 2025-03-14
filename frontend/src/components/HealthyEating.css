@@ -1,0 +1,64 @@
+/* HealthyEating.css */
+
+.healthy-eating {
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Center the text content */
+  justify-content: center;
+  text-align: center;
+  padding: 20px;
+  margin-top: 28vw; /* Increased margin to push below title */
+  position: relative;
+  width: 85vw;
+  left: 4vw; /* Set width to 65% of the viewport width */
+  box-sizing: border-box; /* Include padding and border in the element's total width and height */
+}
+
+.content {
+  z-index: 2;
+  position: absolute;
+  left: 38%;
+  transform: translateX(-50%); /* Center the content */
+  color: rgb(242 244 245);
+}
+
+.content h2 {
+  font-size: 2rem;
+  margin-bottom: 2vh;
+  color: #f2e8e8;
+  font-weight: 1000;
+}
+
+.content p {
+  font-size: 1.3rem;
+  color: #fbf7f7;
+}
+
+.buttons button {
+  padding: 10px 20px;
+  margin: 10px;
+  border: none;
+  background-color: #28a745;
+  color: rgb(15 14 14);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  border-radius: 5px;
+}
+
+.buttons button:hover {
+  background-color: #218838;
+}
+
+.healthy-eating img {
+  width: 65vw; /* Set width to 100% of the container */
+  height: auto; /* Maintain aspect ratio */
+  position: absolute;
+  left: 0; /* Align images to the left */
+  opacity: 0;
+  transition: opacity 1s ease-in-out;
+}
+
+.healthy-eating img.active {
+  opacity: 1;
+}

@@ -1,0 +1,48 @@
+/* Navbar.css */
+
+.navbar {
+  display: flex;
+  flex-direction: column; /* Change to column layout */
+  justify-content: center;
+  align-items: center;
+  padding: 25px;
+  background-color: white;
+  box-shadow: 0 4px 6px rgb(0 0 0 / 10%);
+  position: relative; /* Change to relative */
+  width: 100vw;
+  height: 10vh;
+  z-index: 1000;
+  box-sizing: border-box; /* Include padding and border in the element's total width and height */
+}
+
+.navbar ul {
+  list-style: none;
+  display: flex;
+  gap: 20px;
+  margin-top: 2vh;
+  padding: 0;
+}
+
+.navbar ul li a {
+  text-decoration: none;
+  color: black;
+  font-weight: 600;
+  font-size: 1.5rem;
+}
+
+.navbar ul li a:hover {
+  color: rgb(105 102 102); /* Change color on hover */
+  font-size: 1.8rem; /* Maintain the same font size on hover */
+}
+
+.navbar .logo {
+  position: absolute;
+  left: 0;
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: rgb(76 36 36);
+  font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+  border: 5px solid black;
+  padding: 2px;
+  box-sizing: border-box; /* Include padding and border in the element's total width and height */
+}

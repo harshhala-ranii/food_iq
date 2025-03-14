@@ -1,0 +1,57 @@
+.diet-section2 {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+  background-color: #f9f9f9;
+  height: 100vh;
+}
+
+.image-section2 {
+  flex: 1;
+  text-align: center;
+}
+
+.food-image2 {
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+}
+
+.text-section2 {
+  flex: 1;
+  padding-left: 20px;
+}
+
+.headingdiet2 {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+.diet-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+.diet-table th,
+.diet-table td {
+  border: 1px solid #ddd;
+  padding: 10px;
+  text-align: left;
+}
+
+.diet-table th {
+  background-color: #4caf50;
+  color: white;
+}
+
+.diet-table tr:nth-child(even) {
+  background-color: #f2f2f2;
+}
