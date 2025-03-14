@@ -1,0 +1,35 @@
+/* DietSection1.css */
+
+.diet-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100vh;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.text-section {
+  width: 38%;
+  left: 20vw;
+  font-size: x-large;
+  padding-left: 30px;
+  box-sizing: border-box;
+}
+
+.image-section {
+  width: 50%;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.food-image {
+  max-width: 100%;
+  height: 100vh;
+  border-radius: 10px; /* Optional: Add rounded corners to the image */
+}

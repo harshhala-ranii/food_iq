@@ -1,0 +1,14 @@
+body {
+  background-color: #f5f5f5;
+}
+
+.about-page-wrapper {
+  opacity: 0;
+  animation: fadeIn 1s ease-in forwards;
+}
+
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+  }
+}
