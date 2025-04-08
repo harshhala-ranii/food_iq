@@ -4,8 +4,8 @@ import numpy as np
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
 # Import from our modules
-from schemas import Food
-from database import get_db
+from models.schemas import Food
+from models.database import get_db
 
 # Create router
 router = APIRouter()
@@ -72,8 +72,28 @@ def get_food_summary(food_name: str, db: Session = Depends(get_db)):
         "Iron (mg)": get_safe_attr(food_item, "iron")
     }
 
-    # Generate a summary and return it
-    return {"summary": generate_food_summary(food_data)}
+    # Create nutrition object for the response
+    nutrition = {
+        "food_product": food_item.food_product,
+        "amount": get_safe_attr(food_item, "amount"),
+        "energy": get_safe_attr(food_item, "energy"),
+        "carbohydrate": get_safe_attr(food_item, "carbohydrate"),
+        "protein": get_safe_attr(food_item, "protein"),
+        "total_fat": get_safe_attr(food_item, "total_fat"),
+        "sodium": get_safe_attr(food_item, "sodium"),
+        "iron": get_safe_attr(food_item, "iron")
+    }
+
+    # Generate nutritional guidance
+    from endpoints.imageprocess import generate_nutritional_guidance
+    nutritional_guidance = generate_nutritional_guidance(food_item)
+
+    # Return the response with summary, nutrition, and guidance
+    return {
+        "summary": generate_food_summary(food_data),
+        "nutrition": nutrition,
+        "nutritional_guidance": nutritional_guidance
+    }
 
 # API Endpoint to Get All Food Items
 @router.get("/all")

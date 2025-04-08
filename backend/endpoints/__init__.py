@@ -1,0 +1,1 @@
+# Make endpoints a proper Python package 

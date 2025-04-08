@@ -1,13 +1,14 @@
 import pandas as pd
 from sqlalchemy.exc import SQLAlchemyError
 import os
+import sys
 
-# Import from our new modules
-from schemas import Base, Food
-from database import engine, SessionLocal
+# Add the parent directory to the Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Create the tables (if not already created)
-Base.metadata.create_all(bind=engine)
+# Import from our modules
+from models.database import engine, SessionLocal
+from models.food import Food
 
 # Function to load CSV data into the database
 def load_csv_to_db(csv_file: str):
@@ -58,4 +59,6 @@ def load_csv_to_db(csv_file: str):
 
 # Example usage
 if __name__ == "__main__":
-    load_csv_to_db("./Sheet.csv")
+    # Get the absolute path to the CSV file
+    csv_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Sheet.csv")
+    load_csv_to_db(csv_file)

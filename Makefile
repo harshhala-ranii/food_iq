@@ -1,4 +1,4 @@
-.PHONY: help lint-backend lint-frontend test-backend test-coverage docker-build docker-up docker-down install-backend install-frontend install-all db-init clean format-backend format-frontend check-css db-remove-duplicates db-remove-column
+.PHONY: help lint-backend lint-frontend test-backend test-coverage docker-build docker-up docker-down install-backend install-frontend install-all db-init-food db-init-auth db-init clean format-backend format-frontend check-css db-remove-duplicates db-remove-column run-with-llm download-llm-model
 
 # Node.js version to use
 NODE_VERSION ?= 20
@@ -27,6 +27,8 @@ help:
 	@echo "  make docker-up            - Start all services with Docker Compose"
 	@echo "  make docker-down          - Stop all services"
 	@echo "  make clean                - Remove build artifacts and cache files"
+	@echo "  make run-with-llm         - Run the application with LLM integration"
+	@echo "  make download-llm-model   - Download the Llama 3 8B Instruct model"
 	@echo ""
 	@echo "You can specify a different Node.js version with NODE_VERSION:"
 	@echo "  make lint-frontend NODE_VERSION=16"
@@ -101,9 +103,16 @@ install-frontend:
 	cd frontend && bash -c 'source $$NVM_DIR/nvm.sh && nvm use $(NODE_VERSION) && npm ci'
 
 # Database
-db-init:
-	@echo "Initializing database..."
-	cd backend && python dbcreateandinsert.py
+db-init-food:
+	@echo "Initializing food database tables..."
+	cd backend && python db/dbcreateandinsert.py
+
+db-init-auth:
+	@echo "Initializing auth database tables..."
+	cd backend && python db/init_auth.py
+
+db-init: db-init-auth db-init-food
+	@echo "Database initialization complete"
 
 # Docker commands
 docker-build:
@@ -144,4 +153,16 @@ db-remove-column:
 	@echo "Removing average_volume column from the database..."
 	@echo "Ensuring required packages are installed..."
 	pip install sqlalchemy --quiet
-	cd backend && python remove_column.py 
+	cd backend && python remove_column.py
+
+# LLM Integration
+run-with-llm:
+	@echo "Starting Food IQ with LLM integration..."
+	docker-compose -f docker-compose.llm.yml up
+
+download-llm-model:
+	@echo "Creating llm-models directory if it doesn't exist..."
+	mkdir -p llm-models
+	@echo "Downloading Llama 3 8B Instruct model (Q4_K_M quantization)..."
+	curl -L https://huggingface.co/TheBloke/Llama-3-8B-Instruct-GGUF/resolve/main/llama-3-8b-instruct.Q4_K_M.gguf -o llm-models/llama-3-8b-instruct.Q4_K_M.gguf
+	@echo "Model downloaded successfully to llm-models directory." 
