@@ -1,5 +1,5 @@
 import pytest
-from schemas import Food
+from backend.schema.schemas import Food
 from database import engine, SessionLocal
 from sqlalchemy.orm import Session
 

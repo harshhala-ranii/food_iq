@@ -1,0 +1,76 @@
+.nutrition-facts {
+  width: 100%;
+  max-width: 350px;
+  padding: 15px;
+  border: 1px solid #333;
+  font-family: 'Arial', sans-serif;
+  background-color: white;
+  box-sizing: border-box;
+}
+
+.nutrition-facts-header {
+  margin-bottom: 10px;
+}
+
+.nutrition-facts-header h2 {
+  font-size: 28px;
+  font-weight: bold;
+  margin: 0 0 5px 0;
+}
+
+.nutrition-facts-header .food-name {
+  font-size: 16px;
+  font-weight: bold;
+  margin: 0 0 5px 0;
+  text-transform: capitalize;
+}
+
+.nutrition-facts-header .serving-size {
+  font-size: 14px;
+  margin: 0;
+}
+
+.nutrition-facts-divider {
+  height: 1px;
+  background-color: #333;
+  margin: 5px 0;
+}
+
+.nutrition-facts-divider.thick {
+  height: 5px;
+}
+
+.nutrition-facts-calories {
+  display: flex;
+  justify-content: space-between;
+  font-size: 16px;
+  font-weight: bold;
+  padding: 5px 0;
+}
+
+.nutrition-facts-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  padding: 5px 0;
+}
+
+.nutrition-facts-item .label {
+  font-weight: bold;
+}
+
+.nutrition-facts-footer {
+  margin-top: 10px;
+  font-size: 10px;
+  color: #666;
+}
+
+/* Animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.nutrition-facts {
+  animation: fadeIn 0.5s ease-in;
+} 

@@ -10,7 +10,12 @@ A web application for retrieving nutritional information about food items and id
 ## Features
 
 - **Food Nutritional Information**: Get detailed nutritional information about various food items
-- **Food Image Recognition**: Upload images of Indian food and get predictions with nutritional information
+- **Food Image Recognition**: Upload an image of Indian food and get it identified using our trained CNN model
+- **Nutritional Information**: Get detailed nutritional facts for the identified food
+- **Nutritional Guidance**: Receive AI-generated health guidance and dietary suggestions based on the food's nutritional profile
+- **Manual Search**: Search for foods by name if you already know what you're eating
+- **Auto-suggestions**: Get food name suggestions as you type with keyboard navigation
+- **Responsive Design**: Works on desktop and mobile devices
 - **Database Management**: Tools for managing the food database, including removing duplicates and cleaning data
 
 ## Local Development
@@ -23,6 +28,8 @@ A web application for retrieving nutritional information about food items and id
 - Poetry (for Python dependency management and formatting)
 - Docker and Docker Compose (optional)
 - Make (for using the Makefile commands)
+- TensorFlow 2.x
+- SQLite (for development)
 
 ### Setup
 
@@ -33,6 +40,22 @@ A web application for retrieving nutritional information about food items and id
    DB_PASSWORD=postgres
    ```
 3. Place the TensorFlow model file (`Indian_Food_CNN_Model.h5`) in the `backend/models` directory
+4. Create a `.env` file in the backend directory based on the `.env.example` template:
+   ```
+   # Database Configuration
+   DATABASE_URL=sqlite:///./food_iq.db
+
+   # Model Configuration
+   MODEL_PATH=models/Indian_Food_CNN_Model.h5
+
+   # LLM API Configuration
+   LLM_API_URL=http://localhost:8080/v1/completions
+   LLM_API_KEY=your_api_key_here
+
+   # Server Configuration
+   PORT=8000
+   HOST=0.0.0.0
+   ```
 
 ### Using the Makefile
 
@@ -249,4 +272,16 @@ make test-coverage
 cd backend
 poetry run pytest
 poetry run pytest --cov=. --cov-report=term
-``` 
+```
+
+## LLM Integration
+
+The nutritional guidance feature uses an LLM (Large Language Model) to generate personalized health insights. You can:
+
+1. Use a local LLM server like [llama.cpp](https://github.com/ggerganov/llama.cpp) or [text-generation-webui](https://github.com/oobabooga/text-generation-webui)
+2. Connect to a cloud-based LLM API
+3. Run without an LLM - the system will fall back to rule-based guidance
+
+To configure:
+- Set `LLM_API_URL` to your LLM server endpoint
+- Set `LLM_API_KEY` to your API key (if required) 

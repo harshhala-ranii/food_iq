@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from schemas import Base, Food
+from backend.schema.schemas import Base, Food
 from database import get_db
 from backend.endpoints.get_food import app
 
