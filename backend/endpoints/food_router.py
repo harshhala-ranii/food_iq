@@ -2,13 +2,19 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 import numpy as np
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
+import logging
 
 # Import from our modules
-from models.schemas import Food
+from models.food import Food
 from models.database import get_db
+from models.food_queries import get_food_nutrition, display_food_details
 
 # Create router
 router = APIRouter()
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Function to safely convert float values
 def safe_float(value):
@@ -54,13 +60,19 @@ def generate_food_summary(food):
 # API Endpoint to Fetch Food Summary by Name
 @router.get("/summary/{food_name}")
 def get_food_summary(food_name: str, db: Session = Depends(get_db)):
-    try:
-        food_item = db.query(Food).filter(Food.food_product.ilike(f"%{food_name}%")).one()
-    except NoResultFound:
+    logger.debug(f"Received request for food: {food_name}")
+    logger.debug(f"Food name type: {type(food_name)}")
+    logger.debug(f"Food name value: '{food_name}'")
+    
+    # Use get_food_nutrition from food_queries.py
+    food_item = get_food_nutrition(food_name, db)
+    
+    if not food_item:
+        logger.debug(f"No food found for: {food_name}")
         raise HTTPException(status_code=404, detail="Food item not found")
-    except MultipleResultsFound:
-        raise HTTPException(status_code=400, detail="Multiple food items found. Please refine your search.")
 
+    logger.debug(f"Found food item: {food_item.food_product}")
+    
     # Format data safely
     food_data = {
         "Food Product": food_name,
@@ -84,15 +96,10 @@ def get_food_summary(food_name: str, db: Session = Depends(get_db)):
         "iron": get_safe_attr(food_item, "iron")
     }
 
-    # Generate nutritional guidance
-    from endpoints.imageprocess import generate_nutritional_guidance
-    nutritional_guidance = generate_nutritional_guidance(food_item)
-
-    # Return the response with summary, nutrition, and guidance
+    # Return the response with summary and nutrition
     return {
         "summary": generate_food_summary(food_data),
-        "nutrition": nutrition,
-        "nutritional_guidance": nutritional_guidance
+        "nutrition": nutrition
     }
 
 # API Endpoint to Get All Food Items

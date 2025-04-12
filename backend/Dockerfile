@@ -47,6 +47,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir accelerate==0.23.0 && \
     # Install development dependencies
     pip install --no-cache-dir pytest==7.4.2 httpx==0.25.0 gunicorn==21.2.0 && \
+    # Install pandas for data loading
+    pip install --no-cache-dir pandas==2.0.3 && \
     # Verify installations
     python -c "import tensorflow as tf; print(f'TensorFlow version: {tf.__version__}')" && \
     python -c "import numpy as np; print(f'NumPy version: {np.__version__}')" && \
@@ -74,5 +76,4 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
 # Command to run the application with error handling
 CMD ["sh", "-c", "\
     echo 'Starting application...' && \
-    python -c 'from models.database import Base, engine; from main import *; Base.metadata.create_all(bind=engine)' && \
     uvicorn main:app --host 0.0.0.0 --port 8000 --reload"] 

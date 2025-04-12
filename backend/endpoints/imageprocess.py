@@ -1,23 +1,38 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse
 import numpy as np
 import tensorflow as tf
+import os
+import shutil
+import tempfile
+from sqlalchemy.orm import Session
+import logging
+from models.food_queries import get_food_nutrition
+# Configure logging
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# Import models and services
+from models.database import get_db, SQLALCHEMY_DATABASE_URL
+from models.food import Food  # Import Food model directly
+from models.food_queries import display_food_details
+
 
 # Try different import paths for image preprocessing
 try:
     # TensorFlow 2.x preferred path
     from tensorflow.keras.preprocessing import image
-    print("Successfully imported image from tensorflow.keras.preprocessing")
+    logger.info("Successfully imported image from tensorflow.keras.preprocessing")
 except ImportError:
     try:
         # Alternative import path for some TensorFlow versions
         from keras.preprocessing import image
-        print("Successfully imported image from keras.preprocessing")
+        logger.info("Successfully imported image from keras.preprocessing")
     except ImportError:
         try:
             # For newer TensorFlow versions (2.6+)
             from keras.utils import load_img, img_to_array
-            print("Successfully imported load_img and img_to_array from keras.utils")
+            logger.info("Successfully imported load_img and img_to_array from keras.utils")
             
             # Create compatibility layer
             class ImageCompat:
@@ -34,7 +49,7 @@ except ImportError:
         except ImportError:
             # Last resort - use PIL directly
             from PIL import Image
-            print("Using PIL directly for image processing")
+            logger.info("Using PIL directly for image processing")
             
             # Create compatibility layer
             class ImageCompat:
@@ -52,24 +67,11 @@ except ImportError:
             # Replace the image module with our compatibility class
             image = ImageCompat
 
-import os
-import shutil
-import tempfile
-from sqlalchemy.orm import Session
-from datetime import datetime
-
-
-# Import models and services
-from models.database import get_db
-from models.food import Food
-from models.user import UserProfile, FoodRecommendation
-from services.llm_service import get_llm_service
-
-
 router = APIRouter()
 
 # Define Image Size
 IMG_SIZE = 224
+logger.debug(f"Image size set to: {IMG_SIZE}")
 
 # Define Class Names (Ensure it matches training classes)
 CLASS_NAMES = [
@@ -79,9 +81,11 @@ CLASS_NAMES = [
     "kaathi_rolls", "kadai_paneer", "masala_dosa", "mysore_pak", "pakode",
     "palak_paneer", "paneer_butter_masala", "paani_puri", "pav_bhaji", "samosa"
 ]
+logger.debug(f"Number of food classes: {len(CLASS_NAMES)}")
 
 # Path to the model file
 MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models", "Indian_Food_CNN_Model.h5")
+logger.debug(f"Model path: {MODEL_PATH}")
 
 # Load the model (lazy loading to avoid loading at import time)
 _model = None
@@ -104,14 +108,16 @@ def check_tensorflow_keras_versions():
     """
     Check TensorFlow and Keras version compatibility
     """
-    print(f"TensorFlow version: {tf.__version__}")
-    print(f"Keras version: {tf.keras.__version__}")  # tf.keras is included in TensorFlow
+    logger.info(f"TensorFlow version: {tf.__version__}")
+    logger.info(f"Keras version: {tf.keras.__version__}")  # tf.keras is included in TensorFlow
     return tf
 
 def create_model():
     """
     Create a new model with the same architecture as the original
     """
+    logger.info("Creating a new model with MobileNetV2 base")
+    
     # Create a simple CNN model
     inputs = tf.keras.layers.Input(shape=(IMG_SIZE, IMG_SIZE, 3))
     
@@ -129,6 +135,7 @@ def create_model():
     outputs = tf.keras.layers.Dense(len(CLASS_NAMES), activation='softmax')(x)
     
     model = tf.keras.Model(inputs=inputs, outputs=outputs)
+    logger.info("Model created successfully")
     return model
 
 def get_model():
@@ -139,11 +146,12 @@ def get_model():
     global _model
     if _model is None:
         try:
+            logger.info("Loading model...")
             check_tensorflow_keras_versions()  # Check TensorFlow/Keras versions
             
             # Check if model file exists
             if not os.path.exists(MODEL_PATH):
-                print(f"Error: Model file not found at {MODEL_PATH}")
+                logger.error(f"Error: Model file not found at {MODEL_PATH}")
                 return None
             
             # Define custom objects to handle batch_shape and DTypePolicy
@@ -155,31 +163,33 @@ def get_model():
             try:
                 from tensorflow.keras.mixed_precision import Policy as DTypePolicy
                 custom_objects['DTypePolicy'] = DTypePolicy
-                print("Added DTypePolicy to custom_objects")
+                logger.info("Added DTypePolicy to custom_objects")
             except ImportError:
                 try:
                     # For older TensorFlow versions
                     from tensorflow.keras.mixed_precision.experimental import Policy as DTypePolicy
                     custom_objects['DTypePolicy'] = DTypePolicy
-                    print("Added experimental DTypePolicy to custom_objects")
+                    logger.info("Added experimental DTypePolicy to custom_objects")
                 except ImportError:
-                    print("Could not import DTypePolicy, will try to continue without it")
+                    logger.warning("Could not import DTypePolicy, will try to continue without it")
             
             # Try different approaches to load the model
             try:
                 # Approach 1: Load with custom objects
+                logger.info("Attempting to load model with custom objects")
                 _model = tf.keras.models.load_model(
                     MODEL_PATH, 
                     custom_objects=custom_objects,
                     compile=False
                 )
-                print("Model loaded successfully with custom objects!")
+                logger.info("Model loaded successfully with custom objects!")
             except Exception as e1:
-                print(f"Error loading model with custom objects: {e1}")
+                logger.error(f"Error loading model with custom objects: {e1}")
                 
                 try:
                     # Approach 2: Try with a different DTypePolicy approach
                     # Create a dummy policy class
+                    logger.info("Attempting to load model with dummy DTypePolicy")
                     class DummyDTypePolicy:
                         def __init__(self, *args, **kwargs):
                             pass
@@ -197,17 +207,17 @@ def get_model():
                         custom_objects=custom_objects,
                         compile=False
                     )
-                    print("Model loaded successfully with dummy DTypePolicy!")
+                    logger.info("Model loaded successfully with dummy DTypePolicy!")
                 except Exception as e2:
-                    print(f"Error loading model with dummy DTypePolicy: {e2}")
+                    logger.error(f"Error loading model with dummy DTypePolicy: {e2}")
                     
                     # Approach 3: Use the simplified model for demonstration
-                    print("Using a simplified model for demonstration purposes...")
+                    logger.warning("Using a simplified model for demonstration purposes...")
                     _model = create_model()
-                    print("Simplified model created successfully!")
+                    logger.info("Simplified model created successfully!")
             
         except Exception as e:
-            print(f"Error in get_model: {e}")
+            logger.error(f"Error in get_model: {e}", exc_info=True)
             return None
     return _model
 
@@ -215,105 +225,128 @@ def predict_food(img_path):
     """
     Predict food from image path
     """
+    logger.info(f"Predicting food from image: {img_path}")
+    
     model = get_model()
     if model is None:
+        logger.error("Model not available")
         raise HTTPException(status_code=500, detail="Model not available")
     
     try:
+        logger.debug("Loading and preprocessing image")
         img = image.load_img(img_path, target_size=(IMG_SIZE, IMG_SIZE))  # Resize image
         img_array = image.img_to_array(img) / 255.0  # Normalize pixel values
         img_array = np.expand_dims(img_array, axis=0)  # Expand batch dimension
 
         # Make Prediction
+        logger.debug("Making prediction")
         prediction = model.predict(img_array)
         predicted_class = np.argmax(prediction, axis=1)[0]  # Get highest probability class
         confidence = float(np.max(prediction))  # Get confidence score (convert to float for JSON serialization)
-
+        
+        logger.info(f"Predicted food: {CLASS_NAMES[predicted_class]} with confidence: {confidence}")
         return CLASS_NAMES[predicted_class], confidence
     except Exception as e:
+        logger.error(f"Error processing image: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
 
-def get_food_nutrition(food_name: str, db: Session):
+# Direct database query function to use as a fallback
+def direct_get_food_nutrition(food_name: str, db: Session):
     """
-    Get nutritional information for the predicted food from the database
+    Direct database query function to use as a fallback
     """
+    logger.debug(f"Direct database query for food: {food_name}")
+    
     # Try to find an exact match
     food = db.query(Food).filter(Food.food_product == food_name).first()
+    logger.debug(f"Direct query exact match result: {food}")
     
     # If no exact match, try to find a partial match
     if not food:
+        logger.debug(f"No exact match found, trying partial match for: {food_name}")
         food = db.query(Food).filter(Food.food_product.ilike(f"%{food_name}%")).first()
+        logger.debug(f"Direct query partial match result: {food}")
     
     return food
 
-def convert_to_food_model(nutrition):
+# Function to check database connection
+def check_db_connection(db: Session):
     """
-    Convert the nutrition object to the format expected by the LLM service
+    Check if the database connection is working and print the current database URL
     """
-    if not nutrition:
-        return None
+    logger.info(f"Current database URL: {SQLALCHEMY_DATABASE_URL}")
     
-    # Convert the nutrition object to a dictionary with the format expected by the LLM service
-    food_data = {
-        "id": getattr(nutrition, 'id', 0),
-        "name": getattr(nutrition, 'food_product', 'Unknown Food'),
-        "calories": getattr(nutrition, 'energy', 0),
-        "protein": getattr(nutrition, 'protein', 0),
-        "carbs": getattr(nutrition, 'carbohydrate', 0),
-        "fat": getattr(nutrition, 'total_fat', 0),
-        "fiber": getattr(nutrition, 'fiber', 0) if hasattr(nutrition, 'fiber') else 0,
-        "sugar": getattr(nutrition, 'sugar', 0) if hasattr(nutrition, 'sugar') else 0,
-        "sodium": getattr(nutrition, 'sodium', 0),
-        "potassium": getattr(nutrition, 'potassium', 0) if hasattr(nutrition, 'potassium') else 0,
-        "food_group": getattr(nutrition, 'food_group', "Indian cuisine"),
-        "portion_size": getattr(nutrition, 'amount', '100'),
-        "portion_unit": getattr(nutrition, 'amount_unit', "g")
-    }
-    
-    return food_data
+    try:
+        # Try to execute a simple query
+        result = db.execute("SELECT 1").scalar()
+        logger.info(f"Database connection successful. Test query result: {result}")
+        
+        # Check if the food table exists and has data
+        food_count = db.query(Food).count()
+        logger.info(f"Food table exists and has {food_count} records")
+        
+        # List all food items in the database
+        foods = db.query(Food.food_product).all()
+        food_names = [food[0] for food in foods]
+        logger.info(f"Food items in database: {food_names}")
+        
+        return True
+    except Exception as e:
+        logger.error(f"Database connection error: {str(e)}", exc_info=True)
+        return False
 
 @router.post("/predict")
 async def predict_food_from_image(
     file: UploadFile = File(...),
-    user_id: int = None,
-    context: str = None,
     db: Session = Depends(get_db)
 ):
     """
-    Endpoint to predict food from an uploaded image and generate personalized recommendations
+    Endpoint to predict food from an uploaded image and get nutritional information
     """
+    logger.info(f"Received image file: {file.filename}, content type: {file.content_type}")
+    
+    # Check database connection
+    check_db_connection(db)
+    
     # Check if the file is a JPG/JPEG
     if not file.content_type in ["image/jpeg", "image/jpg"]:
+        logger.warning(f"Unsupported file type: {file.content_type}")
         raise HTTPException(status_code=400, detail="Only JPG/JPEG images are supported")
     
     # Create a temporary file to store the uploaded image
     with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
         # Copy the uploaded file to the temporary file
+        logger.debug(f"Creating temporary file: {temp_file.name}")
         shutil.copyfileobj(file.file, temp_file)
         temp_file_path = temp_file.name
     
     try:
         # Predict food from image
+        logger.info("Predicting food from image")
         predicted_food, confidence = predict_food(temp_file_path)
         
-        # Get nutritional information from database
+        # Get nutritional information from database using the food_queries module
+        logger.info(f"Getting nutritional information for: {predicted_food}")
+        
+        # Try the imported function first
         nutrition = get_food_nutrition(predicted_food, db)
         
-        # Convert nutrition to the format expected by the LLM service
-        food_data = convert_to_food_model(nutrition)
+        # If that fails, try the direct query function
+        if nutrition is None:
+            logger.warning(f"Imported get_food_nutrition failed, trying direct query for: {predicted_food}")
+            nutrition = direct_get_food_nutrition(predicted_food, db)
         
-        # Prepare base response
+        # Prepare response
         response = {
             "predicted_food": predicted_food,
             "confidence": confidence,
-            "nutrition": None,
-            "personalized_recommendation": None
+            "nutrition": None
         }
         
         if nutrition:
+            logger.debug("Nutrition data found, adding to response")
             response["nutrition"] = {
                 "food_product": getattr(nutrition, 'food_product', 'Unknown'),
-                "amount": getattr(nutrition, 'amount', '100g'),
                 "energy": getattr(nutrition, 'energy', 0),
                 "carbohydrate": getattr(nutrition, 'carbohydrate', 0),
                 "protein": getattr(nutrition, 'protein', 0),
@@ -321,47 +354,20 @@ async def predict_food_from_image(
                 "sodium": getattr(nutrition, 'sodium', 0),
                 "iron": getattr(nutrition, 'iron', 0) if hasattr(nutrition, 'iron') else 0
             }
+        else:
+            logger.warning(f"No nutrition data found for: {predicted_food}")
         
-        # If user_id is provided, get personalized recommendation using the LLM service
-        if user_id and food_data:
-            # Get user profile
-            user_profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
-            
-            if user_profile:
-                # Convert user profile to dictionary
-                profile_dict = {
-                    "name": user_profile.name,
-                    "age": user_profile.age,
-                    "weight": user_profile.weight,
-                    "height": user_profile.height,
-                    "health_issues": user_profile.health_issues,
-                    "allergies": user_profile.allergies,
-                    "medications": user_profile.medications,
-                    "physical_activity_level": user_profile.physical_activity_level,
-                    "weight_goal": user_profile.weight_goal
-                }
-                
-                # Get LLM service
-                llm_service = get_llm_service()
-                
-                # Generate personalized recommendation
-                recommendation_text = llm_service.generate_food_recommendation(
-                    user_profile=profile_dict,
-                    food_data=[food_data],  # Pass as a list since the service expects multiple foods
-                    context=f"Analyzing {predicted_food} from an uploaded image. {context or ''}"
-                )
-                
-                # Add recommendation to response
-                response["personalized_recommendation"] = recommendation_text
-        
+        logger.info("Returning response")
         return JSONResponse(content=response)
     
     except Exception as e:
+        logger.error(f"Error in predict_food_from_image: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
     
     finally:
         # Clean up the temporary file
         if os.path.exists(temp_file_path):
+            logger.debug(f"Cleaning up temporary file: {temp_file_path}")
             os.unlink(temp_file_path)
 
 @router.get("/food-classes")
@@ -369,189 +375,110 @@ async def get_food_classes():
     """
     Endpoint to get all available food classes that the model can predict
     """
+    logger.info("Returning food classes")
     return {"food_classes": CLASS_NAMES}
 
-@router.get("/nutrition")
-async def get_nutrition_by_food_name(food_name: str, db: Session = Depends(get_db)):
+@router.get("/check-db")
+async def check_database(db: Session = Depends(get_db)):
     """
-    Endpoint to get nutritional information for a food by name
-    This endpoint is deprecated, use /food/summary/{food_name} instead
+    Endpoint to check the database connection and list food items
     """
-    # Redirect to the correct endpoint
-    return RedirectResponse(url=f"/food/summary/{food_name}")
-
-@router.post("/predict-with-recommendation")
-async def predict_food_with_recommendation(
-    file: UploadFile = File(...),
-    user_id: int = None,
-    context: str = None,
-    save_recommendation: bool = False,
-    db: Session = Depends(get_db)
-):
-    """
-    Endpoint to predict food from an uploaded image and generate personalized recommendations.
-    Optionally saves the recommendation to the database if save_recommendation is True.
-    """
-    # Check if the file is a JPG/JPEG
-    if not file.content_type in ["image/jpeg", "image/jpg"]:
-        raise HTTPException(status_code=400, detail="Only JPG/JPEG images are supported")
+    logger.info("Checking database connection")
     
-    # Create a temporary file to store the uploaded image
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
-        # Copy the uploaded file to the temporary file
-        shutil.copyfileobj(file.file, temp_file)
-        temp_file_path = temp_file.name
+    # Check database connection
+    connection_ok = check_db_connection(db)
+    
+    if connection_ok:
+        # Check if the database has been properly initialized with food data
+        food_count = db.query(Food).count()
+        if food_count == 0:
+            logger.warning("Database is connected but has no food data. It may not be properly initialized.")
+            return {
+                "status": "warning", 
+                "message": "Database connection successful but no food data found",
+                "food_count": 0,
+                "database_url": SQLALCHEMY_DATABASE_URL
+            }
+        
+        # Get a sample of food items
+        sample_foods = db.query(Food).limit(5).all()
+        sample_food_names = [food.food_product for food in sample_foods]
+        
+        return {
+            "status": "success", 
+            "message": "Database connection successful",
+            "food_count": food_count,
+            "sample_foods": sample_food_names,
+            "database_url": SQLALCHEMY_DATABASE_URL
+        }
+    else:
+        return {
+            "status": "error", 
+            "message": "Database connection failed",
+            "database_url": SQLALCHEMY_DATABASE_URL
+        }
+
+@router.get("/init-db")
+async def initialize_database(db: Session = Depends(get_db)):
+    """
+    Endpoint to initialize the database with food data if it's empty
+    """
+    logger.info("Checking if database needs initialization")
+    
+    # Check if the database has food data
+    food_count = db.query(Food).count()
+    if food_count > 0:
+        logger.info(f"Database already has {food_count} food items")
+        return {
+            "status": "success", 
+            "message": "Database already initialized", 
+            "food_count": food_count,
+            "database_url": SQLALCHEMY_DATABASE_URL
+        }
+    
+    # If the database is empty, try to initialize it
+    logger.info("Database is empty, attempting to initialize it")
     
     try:
-        # Predict food from image
-        predicted_food, confidence = predict_food(temp_file_path)
+        # Import the function to load CSV data into the database
+        from backend.db.dbcreateandinsert import load_csv_to_db
         
-        # Get nutritional information from database
-        nutrition = get_food_nutrition(predicted_food, db)
+        # Get the path to the CSV file
+        csv_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Sheet.csv")
         
-        # Convert nutrition to the format expected by the LLM service
-        food_data = convert_to_food_model(nutrition)
-        
-        # Prepare base response
-        response = {
-            "predicted_food": predicted_food,
-            "confidence": confidence,
-            "nutrition": None,
-            "recommendation": None,
-            "recommendation_id": None
-        }
-        
-        if nutrition:
-            response["nutrition"] = {
-                "food_product": getattr(nutrition, 'food_product', 'Unknown'),
-                "amount": getattr(nutrition, 'amount', '100g'),
-                "energy": getattr(nutrition, 'energy', 0),
-                "carbohydrate": getattr(nutrition, 'carbohydrate', 0),
-                "protein": getattr(nutrition, 'protein', 0),
-                "total_fat": getattr(nutrition, 'total_fat', 0),
-                "sodium": getattr(nutrition, 'sodium', 0),
-                "iron": getattr(nutrition, 'iron', 0) if hasattr(nutrition, 'iron') else 0
+        if not os.path.exists(csv_file):
+            logger.error(f"CSV file not found at {csv_file}")
+            return {
+                "status": "error", 
+                "message": f"CSV file not found at {csv_file}",
+                "database_url": SQLALCHEMY_DATABASE_URL
             }
         
-        # If user_id is provided, get personalized recommendation using the LLM service
-        if user_id and food_data:
-            # Get user profile
-            user_profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
-            
-            if not user_profile:
-                return JSONResponse(content={
-                    **response,
-                    "message": "User profile not found. Please complete your profile to get personalized recommendations."
-                })
-            
-            # Convert user profile to dictionary
-            profile_dict = {
-                "name": user_profile.name,
-                "age": user_profile.age,
-                "weight": user_profile.weight,
-                "height": user_profile.height,
-                "health_issues": user_profile.health_issues,
-                "allergies": user_profile.allergies,
-                "medications": user_profile.medications,
-                "physical_activity_level": user_profile.physical_activity_level,
-                "weight_goal": user_profile.weight_goal
-            }
-            
-            # Get LLM service
-            llm_service = get_llm_service()
-            
-            # Generate personalized recommendation
-            recommendation_text = llm_service.generate_food_recommendation(
-                user_profile=profile_dict,
-                food_data=[food_data],  # Pass as a list since the service expects multiple foods
-                context=f"Analyzing {predicted_food} from an uploaded image. {context or ''}"
-            )
-            
-            # Add recommendation to response
-            response["recommendation"] = recommendation_text
-            
-            # If save_recommendation is True, save the recommendation to the database
-            if save_recommendation:
-                # Create a new recommendation
-                food_ids = str(food_data["id"]) if food_data and food_data["id"] > 0 else ""
-                
-                recommendation = FoodRecommendation(
-                    user_id=user_id,
-                    recommendation_text=recommendation_text,
-                    food_ids=food_ids,
-                    source="image-based",
-                    context=f"Image analysis of {predicted_food}. {context or ''}"
-                )
-                
-                db.add(recommendation)
-                db.commit()
-                db.refresh(recommendation)
-                
-                response["recommendation_id"] = recommendation.id
+        # Load the CSV data into the database
+        load_csv_to_db(csv_file)
         
-        return JSONResponse(content=response)
+        # Check if the database was successfully initialized
+        food_count = db.query(Food).count()
+        if food_count > 0:
+            logger.info(f"Database initialized with {food_count} food items")
+            return {
+                "status": "success", 
+                "message": f"Database initialized with {food_count} food items", 
+                "food_count": food_count,
+                "database_url": SQLALCHEMY_DATABASE_URL
+            }
+        else:
+            logger.error("Failed to initialize database")
+            return {
+                "status": "error", 
+                "message": "Failed to initialize database",
+                "database_url": SQLALCHEMY_DATABASE_URL
+            }
     
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    
-    finally:
-        # Clean up the temporary file
-        if os.path.exists(temp_file_path):
-            os.unlink(temp_file_path)
-
-@router.post("/analyze")
-async def analyze_food_image(
-    file: UploadFile = File(...),
-    user_id: int = None,
-    context: str = None,
-    save_recommendation: bool = True,
-    db: Session = Depends(get_db)
-):
-    """
-    Comprehensive endpoint to analyze a food image, identify the food,
-    get its nutritional information, and generate a personalized recommendation.
-    This endpoint saves the recommendation to the database by default.
-    """
-    # Implementation is similar to predict_food_with_recommendation
-    result = await predict_food_with_recommendation(
-        file=file,
-        user_id=user_id,
-        context=context,
-        save_recommendation=save_recommendation,
-        db=db
-    )
-    
-    # If the result is a JSONResponse, convert it to a dictionary
-    if isinstance(result, JSONResponse):
-        result_data = result.body
-        try:
-            import json
-            result_data = json.loads(result.body)
-        except:
-            # If we can't parse the JSON, just return the original response
-            return result
-    else:
-        result_data = result
-    
-    # Add any additional analysis you want to include
-    if "nutrition" in result_data and result_data["nutrition"]:
-        # Calculate additional nutritional insights
-        nutrition = result_data["nutrition"]
-        
-        # Calculate macronutrient percentages
-        total_calories = nutrition.get("energy", 0)
-        if total_calories > 0:
-            # Calculate percentage of calories from each macronutrient
-            protein_calories = nutrition.get("protein", 0) * 4  # 4 calories per gram of protein
-            carb_calories = nutrition.get("carbohydrate", 0) * 4  # 4 calories per gram of carbs
-            fat_calories = nutrition.get("total_fat", 0) * 9  # 9 calories per gram of fat
-            
-            result_data["macronutrient_breakdown"] = {
-                "protein_percentage": round((protein_calories / total_calories) * 100, 1),
-                "carb_percentage": round((carb_calories / total_calories) * 100, 1),
-                "fat_percentage": round((fat_calories / total_calories) * 100, 1)
-            }
-        
-        # Add any additional insights you want to include
-    
-    return JSONResponse(content=result_data)
+        logger.error(f"Error initializing database: {str(e)}", exc_info=True)
+        return {
+            "status": "error", 
+            "message": f"Error initializing database: {str(e)}",
+            "database_url": SQLALCHEMY_DATABASE_URL
+        }

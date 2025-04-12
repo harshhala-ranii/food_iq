@@ -13,7 +13,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models.database import engine, Base
 from models.user import User, UserProfile, UserFoodLog, FoodRecommendation
 from models.food import Food
-from endpoints import auth_endpoint, imageprocess, user_endpoint
+from endpoints import auth_endpoint, imageprocess, user_endpoint, food_router
 
 # Load environment variables
 load_dotenv()
@@ -49,6 +49,7 @@ app.add_middleware(
 app.include_router(auth_endpoint.router)
 app.include_router(user_endpoint.router)
 app.include_router(imageprocess.router, prefix="/image", tags=["image"])
+app.include_router(food_router.router, prefix="/food", tags=["food"])
 
 @app.get("/")
 async def root():
