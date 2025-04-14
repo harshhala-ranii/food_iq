@@ -22,6 +22,21 @@ interface PredictionResult {
   nutritional_guidance: string | null;
 }
 
+interface VolumeResult {
+  food: string;
+  volume_estimation: number;
+  adjusted_nutrition: {
+    volume_estimate_g: number;
+    energy: number;
+    carbohydrate: number;
+    protein: number;
+    total_fat: number;
+    sodium: number;
+    iron: number;
+  };
+  masked_image: string;
+}
+
 const FoodImageUpload: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -36,6 +51,7 @@ const FoodImageUpload: React.FC = () => {
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState<boolean>(true);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState<number>(-1);
+  const [volumeResult, setVolumeResult] = useState<VolumeResult | null>(null);
 
   // Fetch food classes for suggestions
   useEffect(() => {
@@ -142,8 +158,19 @@ const FoodImageUpload: React.FC = () => {
     setError(null);
 
     try {
+      // Get the food prediction and volume calculation in a single API call
       const data = await predictFood(selectedFile);
       setResult(data);
+
+      // Set volume result from the main prediction response
+      if (data.volume_estimation && data.masked_image) {
+        setVolumeResult({
+          food: data.predicted_food,
+          volume_estimation: data.volume_estimation,
+          adjusted_nutrition: data.nutrition,
+          masked_image: data.masked_image
+        });
+      }
     } catch (err: any) {
       console.error('Upload error:', err);
       if (err.response) {
@@ -326,34 +353,32 @@ const FoodImageUpload: React.FC = () => {
       )}
       
       {result && (
-        <div className="result-container">
-          <div className="food-info">
-            <h3>Food Information</h3>
-            <div className="food-name">{result.predicted_food}</div>
-            
-            {!isManualSearch && (
-              <div className="confidence">
-                Confidence: {(result.confidence * 100).toFixed(2)}%
-              </div>
-            )}
-            
-            {previewUrl && !isManualSearch && (
-              <div className="detected-image">
-                <img src={previewUrl} alt={result.predicted_food} />
-              </div>
-            )}
-          </div>
+        <div className="result-section">
+          <h3>Prediction Result</h3>
+          <p>Predicted Food: {result.predicted_food}</p>
+          <p>Confidence: {(result.confidence * 100).toFixed(2)}%</p>
           
-          {result.nutrition ? (
-            <div className="nutrition-info">
-              <NutritionFacts nutrition={result.nutrition} />
-              <NutritionalGuidance guidance={result.nutritional_guidance} />
+          {volumeResult && (
+            <div className="volume-result">
+              <h4>Volume Estimation</h4>
+              <p>Estimated Volume: {volumeResult.volume_estimation.toFixed(2)}g</p>
+              <div className="masked-image-container">
+                <h4>Food Mask</h4>
+                <img 
+                  src={volumeResult.masked_image} 
+                  alt="Masked Food" 
+                  className="masked-image"
+                />
+              </div>
             </div>
-          ) : (
-            <div className="no-nutrition">
-              <p>No nutrition information available for this food.</p>
-              <p>Try searching with a different name or check our list of supported foods.</p>
-            </div>
+          )}
+          
+          {result.nutrition && (
+            <NutritionFacts nutrition={result.nutrition} />
+          )}
+          
+          {result.nutritional_guidance && (
+            <NutritionalGuidance guidance={result.nutritional_guidance} />
           )}
         </div>
       )}

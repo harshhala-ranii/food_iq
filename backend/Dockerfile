@@ -2,7 +2,7 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# Install system dependencies required for TensorFlow and other packages
+# Install system dependencies required for TensorFlow, OpenCV, and other packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libgomp1 \
@@ -11,6 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libopenblas-dev \
     python3-dev \
     git \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -41,10 +43,15 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir tensorflow==2.12.0 && \
     pip install --no-cache-dir keras==2.12.0 && \
     pip install --no-cache-dir pillow==10.0.1 && \
+    pip install --no-cache-dir opencv-python==4.8.0.76 && \
     # Install LLM dependencies
     pip install --no-cache-dir torch==2.0.1 && \
+    pip install --no-cache-dir torchvision==0.15.2 && \
     pip install --no-cache-dir transformers==4.33.3 && \
     pip install --no-cache-dir accelerate==0.23.0 && \
+    pip install --no-cache-dir timm==0.9.2 && \
+    # Pre-download MiDaS model
+    python -c "import torch; torch.hub.load('intel-isl/MiDaS', 'DPT_Large')" && \
     # Install development dependencies
     pip install --no-cache-dir pytest==7.4.2 httpx==0.25.0 gunicorn==21.2.0 && \
     # Install pandas for data loading
@@ -52,7 +59,13 @@ RUN pip install --no-cache-dir --upgrade pip && \
     # Verify installations
     python -c "import tensorflow as tf; print(f'TensorFlow version: {tf.__version__}')" && \
     python -c "import numpy as np; print(f'NumPy version: {np.__version__}')" && \
-    python -c "import keras; print(f'Keras version: {keras.__version__}')"
+    python -c "import keras; print(f'Keras version: {keras.__version__}')" && \
+    python -c "import cv2; print(f'OpenCV version: {cv2.__version__}')" && \
+    python -c "import torchvision; print(f'torchvision version: {torchvision.__version__}')" && \
+    python -c "import timm; print(f'timm version: {timm.__version__}')"
+
+# Pre-download MiDaS model
+RUN python -c "import torch; torch.hub.load('intel-isl/MiDaS', 'DPT_Large'); print('MiDaS model downloaded successfully')"
 
 # Copy the rest of the application
 COPY . .
@@ -63,7 +76,7 @@ RUN mkdir -p /app/models && \
 
 # Create a healthcheck script
 RUN echo '#!/bin/bash\n\
-python -c "import tensorflow as tf; import numpy as np; import keras; print(\"All ML dependencies working correctly\")"' > /app/healthcheck.sh && \
+python -c "import tensorflow as tf; import numpy as np; import keras; import cv2; import torchvision; import timm; print(\"All ML dependencies working correctly\")"' > /app/healthcheck.sh && \
     chmod +x /app/healthcheck.sh
 
 # Expose the port the app runs on

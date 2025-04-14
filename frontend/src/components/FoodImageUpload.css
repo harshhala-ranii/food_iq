@@ -412,4 +412,50 @@
   .toggle-button {
     max-width: none;
   }
+}
+
+.volume-button {
+  background-color: #4CAF50;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  margin: 10px 0;
+  transition: background-color 0.3s;
+}
+
+.volume-button:hover {
+  background-color: #45a049;
+}
+
+.volume-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.volume-result {
+  margin: 20px 0;
+  padding: 15px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.volume-result h4 {
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.masked-image-container {
+  margin: 15px 0;
+  text-align: center;
+}
+
+.masked-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 } 

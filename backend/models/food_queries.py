@@ -55,7 +55,7 @@ def display_food_details(food):
     
     # Define the columns to display
     columns_to_display = [
-        "food_product", "energy", "carbohydrate", "protein", 
+        "food_product", "amount", "energy", "carbohydrate", "protein", 
         "total_fat", "sodium", "iron"
     ]
     

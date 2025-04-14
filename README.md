@@ -2,227 +2,215 @@
 
 A web application for retrieving nutritional information about food items and identifying Indian food from images.
 
-## Project Structure
-
-- **Backend**: FastAPI application with PostgreSQL database
-- **Frontend**: React application with Material UI
+## Table of Contents
+1. [Features](#features)
+2. [Project Structure](#project-structure)
+3. [Prerequisites](#prerequisites)
+4. [Setup](#setup)
+   - [Environment Configuration](#environment-configuration)
+   - [Database Setup](#database-setup)
+   - [Model Setup](#model-setup)
+5. [Development](#development)
+   - [Using Makefile](#using-makefile)
+   - [Backend Development](#backend-development)
+   - [Frontend Development](#frontend-development)
+   - [Database Management](#database-management)
+6. [Deployment](#deployment)
+   - [Docker Deployment](#docker-deployment)
+   - [Local Deployment](#local-deployment)
+7. [API Documentation](#api-documentation)
+   - [Food Endpoints](#food-endpoints)
+   - [Image Processing Endpoints](#image-processing-endpoints)
+8. [Testing](#testing)
+9. [CI/CD Pipeline](#cicd-pipeline)
 
 ## Features
 
 - **Food Nutritional Information**: Get detailed nutritional information about various food items
 - **Food Image Recognition**: Upload an image of Indian food and get it identified using our trained CNN model
 - **Nutritional Information**: Get detailed nutritional facts for the identified food
-- **Nutritional Guidance**: Receive AI-generated health guidance and dietary suggestions based on the food's nutritional profile
 - **Manual Search**: Search for foods by name if you already know what you're eating
 - **Auto-suggestions**: Get food name suggestions as you type with keyboard navigation
 - **Responsive Design**: Works on desktop and mobile devices
 - **Database Management**: Tools for managing the food database, including removing duplicates and cleaning data
 
-## Local Development
+## Project Structure
 
-### Prerequisites
+```
+food_iq/
+├── backend/
+│   ├── models/
+│   │   ├── Indian_Food_CNN_Model.h5
+│   │   ├── database.py
+│   │   ├── food.py
+│   │   └── food_queries.py
+│   ├── endpoints/
+│   │   ├── food_router.py
+│   │   ├── imageprocess.py
+│   │   └── user_endpoint.py
+│   ├── db/
+│   │   ├── dbcreateandinsert.py
+│   │   └── database.py
+│   └── main.py
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   └── services/
+│   └── package.json
+├── docker-compose.yml
+├── Dockerfile
+└── README.md
+```
+
+## Prerequisites
 
 - Python 3.9+
 - Node.js 20+ (via NVM recommended)
 - PostgreSQL 15+
-- Poetry (for Python dependency management and formatting)
+- Poetry (for Python dependency management)
 - Docker and Docker Compose (optional)
 - Make (for using the Makefile commands)
 - TensorFlow 2.x
 - SQLite (for development)
 
-### Setup
+## Setup
 
-1. Clone the repository
-2. Create a `.env` file in the root directory with the following variables:
-   ```
+### Environment Configuration
+
+1. Create a `.env` file in the root directory:
+   ```env
    DB_USERNAME=postgres
    DB_PASSWORD=postgres
    ```
-3. Place the TensorFlow model file (`Indian_Food_CNN_Model.h5`) in the `backend/models` directory
-4. Create a `.env` file in the backend directory based on the `.env.example` template:
-   ```
+
+2. Create a `.env` file in the backend directory:
+   ```env
    # Database Configuration
    DATABASE_URL=sqlite:///./food_iq.db
 
    # Model Configuration
    MODEL_PATH=models/Indian_Food_CNN_Model.h5
 
-   # LLM API Configuration
-   LLM_API_URL=http://localhost:8080/v1/completions
-   LLM_API_KEY=your_api_key_here
-
    # Server Configuration
    PORT=8000
    HOST=0.0.0.0
    ```
 
-### Using the Makefile
+### Database Setup
 
-This project includes a Makefile that provides convenient commands for common development tasks. **Always run these commands with the `make` prefix**:
+1. Initialize the database:
+   ```bash
+   make db-init
+   ```
+
+2. Remove duplicates (if needed):
+   ```bash
+   make db-remove-duplicates
+   ```
+
+### Model Setup
+
+1. Place the TensorFlow model file (`Indian_Food_CNN_Model.h5`) in the `backend/models` directory
+
+## Development
+
+### Using Makefile
 
 ```bash
 # Show all available commands
 make help
 
-# Install all dependencies
+# Install dependencies
 make install
 
-# Initialize the database
-make db-init
-
-# Remove duplicate records from the database
-make db-remove-duplicates
-
-# Run linting
-make lint
-
 # Format code
-make format                # Format both backend and frontend
-make format-backend        # Format only backend code with Black
-make format-frontend       # Format only frontend code with Prettier
-
-# Check CSS syntax
-make check-css             # Check and fix CSS syntax errors
+make format
+make format-backend
+make format-frontend
 
 # Run tests
 make test
-
-# Run tests with coverage
 make test-coverage
 
-# Start all services with Docker Compose
-make docker-up
-
-# Stop all services
-make docker-down
+# Database management
+make db-init
+make db-remove-duplicates
 ```
 
-#### Node.js Version Management
-
-The Makefile uses NVM (Node Version Manager) to ensure the correct Node.js version is used. By default, it uses Node.js 20. You can specify a different version:
+### Backend Development
 
 ```bash
-# Use a specific Node.js version
-make lint-frontend NODE_VERSION=16
-make install-frontend NODE_VERSION=18
-```
-
-Make sure NVM is installed and properly set up in your environment. The Makefile will automatically run `nvm use` before executing npm commands.
-
-### Poetry for Backend Development
-
-The backend uses Poetry for dependency management and code formatting:
-
-```bash
-# Install Poetry (if not already installed)
-curl -sSL https://install.python-poetry.org | python3 -
-
-# Install dependencies with Poetry
+# Install dependencies
 cd backend
 poetry install
 
-# Format code with Black
+# Run server
+poetry run uvicorn main:app --reload
+
+# Format code
 poetry run black .
 
-# Run tests with Poetry
+# Run tests
 poetry run pytest
 ```
 
-You can also use the Makefile command `make format-backend` which will check if Poetry is installed, install it if needed, and run Black on the backend code.
-
-### Prettier and Stylelint for Frontend Development
-
-The frontend uses Prettier for code formatting and Stylelint for CSS syntax checking:
+### Frontend Development
 
 ```bash
 # Install dependencies
 cd frontend
 npm install
 
-# Format code with Prettier
+# Run development server
+npm run dev
+
+# Format code
 npx prettier --write "src/**/*.{js,jsx,ts,tsx,json,css,scss,md}"
 
-# Check formatting without changing files
-npx prettier --check "src/**/*.{js,jsx,ts,tsx,json,css,scss,md}"
-
-# Check CSS syntax with Stylelint
+# Check CSS syntax
 npx stylelint "src/**/*.css"
-
-# Fix CSS syntax issues automatically
-npx stylelint "src/**/*.css" --fix
 ```
-
-You can also use the Makefile commands:
-- `make format-frontend` - Formats frontend code with Prettier (runs CSS syntax check first)
-- `make check-css` - Checks and fixes CSS syntax errors with Stylelint
 
 ### Database Management
 
-The project includes several commands for managing the PostgreSQL database:
-
 ```bash
-# Initialize the database with sample data
+# Initialize database
 make db-init
 
-# Remove duplicate records from the database
+# Remove duplicates
 make db-remove-duplicates
 ```
 
-The duplicate removal script (`backend/remove_duplicates.py`) provides three methods:
-1. `remove_duplicates()` - Removes duplicates based on all nutritional values
-2. `remove_duplicates_alternative()` - Alternative method using SQLAlchemy ORM
-3. `remove_duplicates_by_food_product()` - Removes duplicates keeping only one record per food product
+## Deployment
 
-You can edit the script to choose which method to use based on your needs.
-
-### Running with Docker Compose
+### Docker Deployment
 
 ```bash
-# Using Makefile
+# Start all services
 make docker-up
 
-# Or directly with Docker Compose
-docker-compose up -d
+# Stop all services
+make docker-down
 ```
 
-This will start:
-- PostgreSQL database on port 5432
-- Backend API on port 8000
-- Frontend application on port 80
-
-### Running Locally
+### Local Deployment
 
 #### Backend
-
 ```bash
-# Using Makefile
-make install-backend
-make db-init
-cd backend && uvicorn main:app --reload
-
-# Or using Poetry
 cd backend
 poetry install
-poetry run python dbcreateandinsert.py
 poetry run uvicorn main:app --reload
 ```
 
 #### Frontend
-
 ```bash
-# Using Makefile
-make install-frontend
-make frontend-dev
-
-# Or manually
 cd frontend
-nvm use 20  # Make sure to use the correct Node.js version
 npm install
 npm run dev
 ```
 
-## API Endpoints
+## API Documentation
 
 ### Food Endpoints
 
@@ -234,54 +222,28 @@ npm run dev
 - `POST /image/predict`: Upload an image of food and get predictions with nutritional information
 - `GET /image/food-classes`: Get a list of all food classes that can be recognized
 
-## CI/CD Pipeline
-
-This project uses GitHub Actions for continuous integration and deployment.
-
-### Pipeline Steps
-
-1. **Lint and Test**:
-   - Formats Python code with Black
-   - Formats JavaScript/TypeScript code with Prettier
-   - Checks CSS syntax with Stylelint
-   - Lints Python code with flake8
-   - Lints JavaScript/TypeScript code with ESLint
-   - Runs Python tests with pytest
-   - Uploads test coverage to Codecov
-
-2. **Build and Push**:
-   - Builds Docker images for backend and frontend
-   - Pushes images to Docker Hub
-
-### Setting Up the Pipeline
-
-1. Add the following secrets to your GitHub repository:
-   - `DOCKERHUB_USERNAME`: Your Docker Hub username
-   - `DOCKERHUB_TOKEN`: Your Docker Hub access token
-
-2. Push to the main/master branch to trigger the pipeline
-
-### Running Tests Locally
+## Testing
 
 ```bash
-# Using Makefile
+# Run all tests
 make test
+
+# Run tests with coverage
 make test-coverage
 
-# Or using Poetry
+# Run backend tests
 cd backend
 poetry run pytest
-poetry run pytest --cov=. --cov-report=term
 ```
 
-## LLM Integration
+## CI/CD Pipeline
 
-The nutritional guidance feature uses an LLM (Large Language Model) to generate personalized health insights. You can:
+The project uses GitHub Actions for continuous integration and deployment.
 
-1. Use a local LLM server like [llama.cpp](https://github.com/ggerganov/llama.cpp) or [text-generation-webui](https://github.com/oobabooga/text-generation-webui)
-2. Connect to a cloud-based LLM API
-3. Run without an LLM - the system will fall back to rule-based guidance
+### Pipeline Steps
+1. Lint and Test
+2. Build and Push Docker images
 
-To configure:
-- Set `LLM_API_URL` to your LLM server endpoint
-- Set `LLM_API_KEY` to your API key (if required) 
+### Required Secrets
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN` 

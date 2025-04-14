@@ -8,6 +8,7 @@ import tempfile
 from sqlalchemy.orm import Session
 import logging
 from models.food_queries import get_food_nutrition
+from PIL import Image
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -16,7 +17,6 @@ logger = logging.getLogger(__name__)
 from models.database import get_db, SQLALCHEMY_DATABASE_URL
 from models.food import Food  # Import Food model directly
 from models.food_queries import display_food_details
-
 
 # Try different import paths for image preprocessing
 try:
@@ -313,11 +313,14 @@ async def predict_food_from_image(
         logger.warning(f"Unsupported file type: {file.content_type}")
         raise HTTPException(status_code=400, detail="Only JPG/JPEG images are supported")
     
+    # Read the file contents once
+    contents = await file.read()
+    
     # Create a temporary file to store the uploaded image
     with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
-        # Copy the uploaded file to the temporary file
+        # Write the contents to the temporary file
         logger.debug(f"Creating temporary file: {temp_file.name}")
-        shutil.copyfileobj(file.file, temp_file)
+        temp_file.write(contents)
         temp_file_path = temp_file.name
     
     try:
@@ -336,39 +339,115 @@ async def predict_food_from_image(
             logger.warning(f"Imported get_food_nutrition failed, trying direct query for: {predicted_food}")
             nutrition = direct_get_food_nutrition(predicted_food, db)
         
+        # Calculate volume and adjust nutrition
+        logger.info("Calculating volume and adjusting nutrition")
+        try:
+            # Create a new BytesIO object from the saved contents
+            logger.debug("Creating BytesIO object from image contents")
+            image_stream = BytesIO(contents)
+            
+            logger.debug("Opening image with PIL and converting to RGB")
+            image = Image.open(image_stream).convert("RGB")
+            logger.debug(f"Image size: {image.size}, mode: {image.mode}")
+            
+            # Depth Estimation and Mask Generation
+            logger.debug("Starting depth estimation")
+            depth_map = estimate_depth(image)
+            logger.debug(f"Depth map shape: {depth_map.shape}, min: {depth_map.min()}, max: {depth_map.max()}")
+            
+            logger.debug("Creating binary mask")
+            mask = create_mask(image)
+            logger.debug(f"Mask shape: {mask.shape}, unique values: {np.unique(mask)}")
+            
+            logger.debug("Estimating volume from depth map")
+            # Use predicted food type for better volume estimation
+            food_type = predicted_food.split('_')[0]  # Extract base food type
+            
+            # Set reference volume based on food type
+            reference_volumes = {
+                "default": 240.0,
+                "rice": 200.0,
+                "bread": 150.0,
+                "soup": 300.0,
+                "curry": 250.0,
+                "salad": 180.0,
+                "fruit": 200.0,
+                "vegetables": 180.0,
+                "meat": 250.0,
+                "fish": 200.0,
+                "dessert": 200.0,
+                "beverage": 300.0
+            }
+            reference_volume = reference_volumes.get(food_type, reference_volumes["default"])
+            
+            volume_ml = estimate_volume_from_depth(depth_map, mask, reference_volume)
+            logger.debug(f"Estimated volume in ml: {volume_ml}")
+            
+            volume_grams = volume_ml  # assuming 1g/ml for food density
+            logger.debug(f"Converted volume to grams: {volume_grams}")
+            
+            # Generate masked image
+            logger.debug("Generating masked image")
+            masked_image = generate_masked_image(image, mask)
+            logger.debug(f"Masked image size: {masked_image.size}, mode: {masked_image.mode}")
+            
+            # Convert masked image to base64
+            logger.debug("Converting masked image to base64")
+            masked_buffer = BytesIO()
+            masked_image.save(masked_buffer, format="PNG")
+            masked_image_base64 = base64.b64encode(masked_buffer.getvalue()).decode("utf-8")
+            logger.debug("Successfully converted masked image to base64")
+            
+            # Adjust nutrition based on volume
+            if nutrition:
+                logger.debug("Adjusting nutrition values based on volume")
+                # Convert volume from ml to grams (assuming 1g/ml density)
+                volume_grams = volume_ml
+                # Calculate scale factor based on the difference from 150g (standard serving)
+                scale_factor = volume_grams / 150.0
+                logger.debug(f"Scale factor for nutrition adjustment: {scale_factor}")
+                
+                adjusted_nutrition = {
+                    "food_product": getattr(nutrition, 'food_product', 'Unknown'),
+                    "amount": f"{volume_grams:.1f}g",
+                    "energy": round(getattr(nutrition, 'energy', 0) * scale_factor, 1),
+                    "carbohydrate": round(getattr(nutrition, 'carbohydrate', 0) * scale_factor, 1),
+                    "protein": round(getattr(nutrition, 'protein', 0) * scale_factor, 1),
+                    "total_fat": round(getattr(nutrition, 'total_fat', 0) * scale_factor, 1),
+                    "sodium": round(getattr(nutrition, 'sodium', 0) * scale_factor, 1),
+                    "iron": round(getattr(nutrition, 'iron', 0) * scale_factor, 1)
+                }
+                logger.debug(f"Adjusted nutrition values: {adjusted_nutrition}")
+            else:
+                logger.warning("No nutrition data available for adjustment")
+                adjusted_nutrition = None
+                
+        except Exception as e:
+            logger.error(f"Error in volume calculation: {str(e)}", exc_info=True)
+            logger.error("Stack trace:", exc_info=True)
+            adjusted_nutrition = None
+            masked_image_base64 = None
+        
         # Prepare response
         response = {
             "predicted_food": predicted_food,
             "confidence": confidence,
-            "nutrition": None
+            "nutrition": adjusted_nutrition,
+            "volume_estimation": volume_grams if 'volume_grams' in locals() else None,
+            "masked_image": f"data:image/png;base64,{masked_image_base64}" if masked_image_base64 else None
         }
         
-        if nutrition:
-            logger.debug("Nutrition data found, adding to response")
-            response["nutrition"] = {
-                "food_product": getattr(nutrition, 'food_product', 'Unknown'),
-                "energy": getattr(nutrition, 'energy', 0),
-                "carbohydrate": getattr(nutrition, 'carbohydrate', 0),
-                "protein": getattr(nutrition, 'protein', 0),
-                "total_fat": getattr(nutrition, 'total_fat', 0),
-                "sodium": getattr(nutrition, 'sodium', 0),
-                "iron": getattr(nutrition, 'iron', 0) if hasattr(nutrition, 'iron') else 0
-            }
-        else:
-            logger.warning(f"No nutrition data found for: {predicted_food}")
+        return response
         
-        logger.info("Returning response")
-        return JSONResponse(content=response)
-    
     except Exception as e:
-        logger.error(f"Error in predict_food_from_image: {str(e)}", exc_info=True)
+        logger.error(f"Error in predict_food_from_image: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-    
     finally:
-        # Clean up the temporary file
-        if os.path.exists(temp_file_path):
-            logger.debug(f"Cleaning up temporary file: {temp_file_path}")
+        # Clean up temporary file
+        try:
             os.unlink(temp_file_path)
+        except Exception as e:
+            logger.error(f"Error deleting temporary file: {str(e)}")
 
 @router.get("/food-classes")
 async def get_food_classes():
@@ -482,3 +561,10 @@ async def initialize_database(db: Session = Depends(get_db)):
             "message": f"Error initializing database: {str(e)}",
             "database_url": SQLALCHEMY_DATABASE_URL
         }
+
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.depth_estimation import estimate_depth, create_mask, estimate_volume_from_depth, generate_masked_image
+import base64
+from io import BytesIO
