@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Header
 from fastapi.responses import JSONResponse
 import numpy as np
 import tensorflow as tf
@@ -6,6 +6,7 @@ import os
 import shutil
 import tempfile
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 import logging
 from models.food_queries import get_food_nutrition
 from PIL import Image
@@ -286,8 +287,8 @@ def check_db_connection(db: Session):
     logger.info(f"Current database URL: {SQLALCHEMY_DATABASE_URL}")
     
     try:
-        # Try to execute a simple query
-        result = db.execute("SELECT 1").scalar()
+        # Try to execute a simple query using text()
+        result = db.execute(text("SELECT 1")).scalar()
         logger.info(f"Database connection successful. Test query result: {result}")
         
         # Check if the food table exists and has data
@@ -308,12 +309,22 @@ def check_db_connection(db: Session):
 async def predict_food_from_image(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    token: Optional[str] = None
+    authorization: Optional[str] = Header(None)
 ):
     """
     Endpoint to predict food from an uploaded image and get nutritional information
     """
     logger.info(f"Received image file: {file.filename}, content type: {file.content_type}")
+    
+    # Extract token from Authorization header
+    token = None
+    if authorization and authorization.startswith('Bearer '):
+        token = authorization.split(' ')[1]
+        logger.info("Token extracted from Authorization header")
+    else:
+        logger.warning("No valid Authorization header found")
+    
+    logger.info(f"Token received: {token is not None}")
     
     # Check database connection
     check_db_connection(db)
@@ -322,17 +333,42 @@ async def predict_food_from_image(
     user_health_conditions = []
     if token:
         try:
+            logger.info("Attempting to decode JWT token")
+            # Use the exact same secret key as in auth.py
+            secret_key = "food_iq_secret_key"
+            
             # Decode the JWT token
-            payload = jwt.decode(token, os.getenv("SECRET_KEY"), algorithms=["HS256"])
+            payload = jwt.decode(token, secret_key, algorithms=["HS256"])
             user_id = payload.get("sub")
+            logger.info(f"Decoded user_id from token: {user_id}")
+            
             if user_id:
-                # Get user profile
+                # Get user profile directly from database
+                logger.info(f"Querying user profile for user_id: {user_id}")
                 profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
-                if profile and profile.health_issues:
-                    user_health_conditions = [profile.health_issues]
-                    logger.info(f"Found user health conditions: {user_health_conditions}")
-        except JWTError:
-            logger.warning("Invalid token provided")
+                logger.info(f"User profile found: {profile is not None}")
+                
+                if profile:
+                    logger.info(f"User profile health issues: {profile.health_issues}")
+                    if profile.health_issues:
+                        # Split health issues if they're comma-separated
+                        health_issues = [issue.strip() for issue in profile.health_issues.split(',')]
+                        user_health_conditions.extend(health_issues)
+                        logger.info(f"Found user health conditions: {user_health_conditions}")
+                    else:
+                        logger.info("No health issues found in user profile")
+                else:
+                    logger.warning(f"No user profile found for user_id: {user_id}")
+        except JWTError as e:
+            logger.error(f"JWT token validation failed: {str(e)}")
+        except ValueError as e:
+            logger.error(f"Configuration error: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error processing token: {str(e)}", exc_info=True)
+    else:
+        logger.warning("No token provided in request")
+    
+    logger.info(f"Final user health conditions: {user_health_conditions}")
     
     # Check if the file is a JPG/JPEG
     if not file.content_type in ["image/jpeg", "image/jpg"]:

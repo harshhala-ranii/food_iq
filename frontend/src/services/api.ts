@@ -15,9 +15,11 @@ export const predictFood = async (imageFile: File) => {
   formData.append('file', imageFile);
   
   try {
+    const token = localStorage.getItem('token');
     const response = await apiClient.post(API_CONFIG.ENDPOINTS.PREDICT_FOOD, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
       },
     });
     return response.data;
