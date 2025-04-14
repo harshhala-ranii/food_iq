@@ -4,22 +4,38 @@ import NutritionFacts from './NutritionFacts';
 import NutritionalGuidance from './NutritionalGuidance';
 import './FoodImageUpload.css';
 
-interface NutritionInfo {
-  food_product: string;
-  amount: string;
-  energy: string;
-  carbohydrate: string;
-  protein: string;
-  total_fat: string;
-  sodium: string;
-  iron: string;
-}
+// interface NutritionInfo {
+//   food_product: string;
+//   amount: string;
+//   energy: string;
+//   carbohydrate: string;
+//   protein: string;
+//   total_fat: string;
+//   sodium: string;
+//   iron: string;
+// }
 
 interface PredictionResult {
   predicted_food: string;
   confidence: number;
-  nutrition: NutritionInfo | null;
-  nutritional_guidance: string | null;
+  nutrition: {
+    food_product: string;
+    amount: string;
+    energy: number;
+    carbohydrate: number;
+    protein: number;
+    total_fat: number;
+    sodium: number;
+    iron: number;
+  };
+  volume_estimation: number;
+  masked_image: string;
+  recommendations: {
+    is_safe: boolean;
+    warnings: string[];
+    suggestions: string[];
+    approval_message: string | null;
+  };
 }
 
 interface VolumeResult {
@@ -160,7 +176,45 @@ const FoodImageUpload: React.FC = () => {
     try {
       // Get the food prediction and volume calculation in a single API call
       const data = await predictFood(selectedFile);
+      console.log('Full API Response:', data);
+      console.log('Recommendations data:', data.recommendations);
+      console.log('Recommendations type:', typeof data.recommendations);
+      console.log('Is recommendations null/undefined:', data.recommendations == null);
+      console.log('Is recommendations empty string:', data.recommendations === '');
+      console.log('Recommendations structure:', {
+        is_safe: data.recommendations?.is_safe,
+        warnings: data.recommendations?.warnings,
+        suggestions: data.recommendations?.suggestions,
+        approval_message: data.recommendations?.approval_message
+      });
+      
+      // Make sure recommendations is an object with the expected structure
+      if (data.recommendations && typeof data.recommendations === 'object') {
+        // Ensure all required properties exist
+        if (!data.recommendations.hasOwnProperty('is_safe')) {
+          data.recommendations.is_safe = true;
+        }
+        if (!data.recommendations.hasOwnProperty('warnings')) {
+          data.recommendations.warnings = [];
+        }
+        if (!data.recommendations.hasOwnProperty('suggestions')) {
+          data.recommendations.suggestions = [];
+        }
+        if (!data.recommendations.hasOwnProperty('approval_message')) {
+          data.recommendations.approval_message = null;
+        }
+      } else {
+        // If recommendations is not an object, create a default one
+        data.recommendations = {
+          is_safe: true,
+          warnings: [],
+          suggestions: [],
+          approval_message: "No specific recommendations available for this food item."
+        };
+      }
+      
       setResult(data);
+      console.log('Result state after setResult:', result);
 
       // Set volume result from the main prediction response
       if (data.volume_estimation && data.masked_image) {
@@ -171,13 +225,9 @@ const FoodImageUpload: React.FC = () => {
           masked_image: data.masked_image
         });
       }
-    } catch (err: any) {
-      console.error('Upload error:', err);
-      if (err.response) {
-        setError(`Error: ${err.response.data.detail || 'Failed to process image'}`);
-      } else {
-        setError('An unexpected error occurred. Please try again.');
-      }
+    } catch (err) {
+      console.error('Error uploading image:', err);
+      setError('Error analyzing image. Please try again.');
     } finally {
       setIsUploading(false);
     }
@@ -211,7 +261,9 @@ const FoodImageUpload: React.FC = () => {
         predicted_food: data.nutrition.food_product,
         confidence: 1.0, // 100% confidence since it's a manual entry
         nutrition: data.nutrition,
-        nutritional_guidance: data.nutritional_guidance
+        volume_estimation: data.volume_estimation,
+        masked_image: data.masked_image,
+        recommendations: data.recommendations
       });
       
       setIsManualSearch(true);
@@ -354,8 +406,8 @@ const FoodImageUpload: React.FC = () => {
       
       {result && (
         <div className="result-section">
-          <h3>Prediction Result</h3>
-          <p>Predicted Food: {result.predicted_food}</p>
+          <h3>Analysis Result</h3>
+          <p>Identified Food: {result.predicted_food}</p>
           <p>Confidence: {(result.confidence * 100).toFixed(2)}%</p>
           
           {volumeResult && (
@@ -373,13 +425,44 @@ const FoodImageUpload: React.FC = () => {
             </div>
           )}
           
-          {result.nutrition && (
-            <NutritionFacts nutrition={result.nutrition} />
-          )}
-          
-          {result.nutritional_guidance && (
-            <NutritionalGuidance guidance={result.nutritional_guidance} />
-          )}
+          <div className="nutrition-and-recommendations">
+            <div className="nutrition-section">
+              {result.nutrition && (
+                <NutritionFacts 
+                  nutrition={{
+                    ...result.nutrition,
+                    energy: result.nutrition.energy.toString(),
+                    carbohydrate: result.nutrition.carbohydrate.toString(),
+                    protein: result.nutrition.protein.toString(),
+                    total_fat: result.nutrition.total_fat.toString(),
+                    sodium: result.nutrition.sodium.toString(),
+                    iron: result.nutrition.iron.toString()
+                  }} 
+                />
+              )}
+            </div>
+            
+            <div className="recommendations-section" style={{ border: '1px solid #ccc', padding: '20px', marginTop: '20px' }}>
+              <h4 style={{ color: '#333', marginBottom: '15px' }}>Nutritional Recommendations</h4>
+              {result.recommendations ? (
+                (() => {
+                  console.log('Rendering recommendations:', {
+                    is_safe: result.recommendations.is_safe,
+                    warnings: result.recommendations.warnings,
+                    suggestions: result.recommendations.suggestions,
+                    approval_message: result.recommendations.approval_message
+                  });
+                  return (
+                    <div style={{ backgroundColor: '#f5f5f5', padding: '15px', borderRadius: '5px' }}>
+                      <NutritionalGuidance guidance={result.recommendations} />
+                    </div>
+                  );
+                })()
+              ) : (
+                <p>No recommendations available for this food item.</p>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

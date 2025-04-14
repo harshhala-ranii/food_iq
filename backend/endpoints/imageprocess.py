@@ -9,6 +9,15 @@ from sqlalchemy.orm import Session
 import logging
 from models.food_queries import get_food_nutrition
 from PIL import Image
+from utils.food_recommendations import FoodRecommendation
+from models.database import get_db, SQLALCHEMY_DATABASE_URL
+from models.food import Food
+from models.food_queries import display_food_details
+from models.user import UserProfile, User
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
+from datetime import datetime, timedelta
+from typing import Optional
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -298,7 +307,8 @@ def check_db_connection(db: Session):
 @router.post("/predict")
 async def predict_food_from_image(
     file: UploadFile = File(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    token: Optional[str] = None
 ):
     """
     Endpoint to predict food from an uploaded image and get nutritional information
@@ -307,6 +317,22 @@ async def predict_food_from_image(
     
     # Check database connection
     check_db_connection(db)
+    
+    # Get user health conditions if token is provided
+    user_health_conditions = []
+    if token:
+        try:
+            # Decode the JWT token
+            payload = jwt.decode(token, os.getenv("SECRET_KEY"), algorithms=["HS256"])
+            user_id = payload.get("sub")
+            if user_id:
+                # Get user profile
+                profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+                if profile and profile.health_issues:
+                    user_health_conditions = [profile.health_issues]
+                    logger.info(f"Found user health conditions: {user_health_conditions}")
+        except JWTError:
+            logger.warning("Invalid token provided")
     
     # Check if the file is a JPG/JPEG
     if not file.content_type in ["image/jpeg", "image/jpg"]:
@@ -327,6 +353,13 @@ async def predict_food_from_image(
         # Predict food from image
         logger.info("Predicting food from image")
         predicted_food, confidence = predict_food(temp_file_path)
+        logger.info(f"Predicted food: {predicted_food} with confidence: {confidence}")
+        
+        # Get food recommendations based on user health conditions
+        logger.info(f"Generating recommendations for {predicted_food} with health conditions: {user_health_conditions}")
+        food_recommendation = FoodRecommendation(predicted_food, user_health_conditions)
+        recommendations = food_recommendation.evaluate()
+        logger.info(f"Generated recommendations: {recommendations}")
         
         # Get nutritional information from database using the food_queries module
         logger.info(f"Getting nutritional information for: {predicted_food}")
@@ -434,9 +467,11 @@ async def predict_food_from_image(
             "confidence": confidence,
             "nutrition": adjusted_nutrition,
             "volume_estimation": volume_grams if 'volume_grams' in locals() else None,
-            "masked_image": f"data:image/png;base64,{masked_image_base64}" if masked_image_base64 else None
+            "masked_image": f"data:image/png;base64,{masked_image_base64}" if masked_image_base64 else None,
+            "recommendations": recommendations
         }
         
+        logger.info(f"Sending response with recommendations: {recommendations}")
         return response
         
     except Exception as e:

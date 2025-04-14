@@ -1,58 +1,70 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import './NutritionalGuidance.css';
 
+interface RecommendationData {
+  is_safe: boolean;
+  warnings: string[];
+  suggestions: string[];
+  approval_message: string | null;
+}
+
 interface NutritionalGuidanceProps {
-  guidance: string | null;
+  guidance: RecommendationData;
 }
 
 const NutritionalGuidance: React.FC<NutritionalGuidanceProps> = ({ guidance }) => {
+  useEffect(() => {
+    console.log('NutritionalGuidance mounted with data:', guidance);
+  }, [guidance]);
+
+  console.log('NutritionalGuidance rendering with data:', guidance);
+
   if (!guidance) {
-    return null;
+    console.log('No guidance data received');
+    return <div>No nutritional guidance available.</div>;
   }
 
-  // Split the guidance into paragraphs
-  const paragraphs = guidance.split('\n\n').filter(p => p.trim() !== '');
+  // Ensure all properties exist
+  const safeGuidance = {
+    is_safe: guidance.is_safe !== undefined ? guidance.is_safe : true,
+    warnings: Array.isArray(guidance.warnings) ? guidance.warnings : [],
+    suggestions: Array.isArray(guidance.suggestions) ? guidance.suggestions : [],
+    approval_message: guidance.approval_message || null
+  };
 
-  // Check if the guidance has a title (first line ending with a colon)
-  const hasTitle = paragraphs.length > 0 && paragraphs[0].includes(':');
-  
-  // Extract title and content if there's a title
-  let title = '';
-  let content = [...paragraphs];
-  
-  if (hasTitle) {
-    const titleParts = paragraphs[0].split(':');
-    title = titleParts[0].trim();
-    
-    // Reconstruct the first paragraph without the title
-    const firstParagraphContent = titleParts.slice(1).join(':').trim();
-    content[0] = firstParagraphContent;
-  }
+  console.log('Processed guidance data:', safeGuidance);
 
   return (
-    <div className="nutritional-guidance">
-      <h3>Nutritional Guidance</h3>
+    <div className="nutritional-guidance" style={{ border: '2px solid #4CAF50', padding: '15px', marginBottom: '15px' }}>
+      <h3 style={{ color: '#2E7D32', marginBottom: '15px' }}>Nutritional Guidance</h3>
       
-      {hasTitle && <h4>{title}</h4>}
+      {safeGuidance.approval_message && (
+        <div className="approval-message" style={{ backgroundColor: '#E8F5E9', padding: '15px', marginBottom: '15px', borderRadius: '5px' }}>
+          <p style={{ color: '#2E7D32', margin: 0, fontWeight: 'bold' }}>{safeGuidance.approval_message}</p>
+        </div>
+      )}
       
-      {content.map((paragraph, index) => {
-        // Check if this paragraph is a list (contains bullet points)
-        if (paragraph.includes('\n-')) {
-          const [listTitle, ...listItems] = paragraph.split('\n-');
-          return (
-            <div key={index} className="guidance-section">
-              {listTitle && <p>{listTitle.trim()}</p>}
-              <ul>
-                {listItems.map((item, itemIndex) => (
-                  <li key={itemIndex}>{item.trim()}</li>
-                ))}
-              </ul>
-            </div>
-          );
-        }
-        
-        return <p key={index}>{paragraph}</p>;
-      })}
+      {safeGuidance.warnings && safeGuidance.warnings.length > 0 && (
+        <div className="warnings-section" style={{ backgroundColor: '#FFF3E0', padding: '15px', marginBottom: '15px', borderRadius: '5px' }}>
+          <h4 style={{ color: '#E65100', marginBottom: '10px' }}>Warnings</h4>
+          <ul style={{ margin: 0, paddingLeft: '20px' }}>
+            {safeGuidance.warnings.map((warning, index) => (
+              <li key={index} style={{ color: '#E65100', marginBottom: '5px' }}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      
+      {safeGuidance.suggestions && safeGuidance.suggestions.length > 0 && (
+        <div className="suggestions-section" style={{ backgroundColor: '#E3F2FD', padding: '15px', marginBottom: '15px', borderRadius: '5px' }}>
+          <h4 style={{ color: '#1565C0', marginBottom: '10px' }}>Suggestions</h4>
+          <ul style={{ margin: 0, paddingLeft: '20px' }}>
+            {safeGuidance.suggestions.map((suggestion, index) => (
+              <li key={index} style={{ color: '#1565C0', marginBottom: '5px' }}>{suggestion}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 };

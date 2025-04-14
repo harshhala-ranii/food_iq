@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 import '../styles/Auth.css';
+import { HealthIssue, HealthIssueLabels } from '../types/health';
 
 const Register: React.FC = () => {
   // User account info
@@ -16,7 +17,7 @@ const Register: React.FC = () => {
   const [number, setNumber] = useState('');
   const [weight, setWeight] = useState('');
   const [height, setHeight] = useState('');
-  const [healthIssues, setHealthIssues] = useState('');
+  const [healthIssues, setHealthIssues] = useState<HealthIssue>(HealthIssue.NONE);
   const [allergies, setAllergies] = useState('');
   const [medications, setMedications] = useState('');
   const [bloodType, setBloodType] = useState('');
@@ -224,12 +225,17 @@ const Register: React.FC = () => {
               
               <div className="form-group">
                 <label htmlFor="healthIssues">Health Issues (Optional)</label>
-                <textarea
+                <select
                   id="healthIssues"
                   value={healthIssues}
-                  onChange={(e) => setHealthIssues(e.target.value)}
-                  placeholder="List any health issues"
-                />
+                  onChange={(e) => setHealthIssues(e.target.value as HealthIssue)}
+                >
+                  {Object.entries(HealthIssueLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
               </div>
               
               <div className="form-group">

@@ -458,4 +458,45 @@
   height: auto;
   border-radius: 4px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.result-section {
+  margin-top: 30px;
+  padding: 20px;
+  background-color: #fff;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.result-section h3 {
+  color: #333;
+  margin-bottom: 15px;
+  font-size: 24px;
+}
+
+.nutrition-and-recommendations {
+  display: flex;
+  gap: 30px;
+  margin-top: 20px;
+}
+
+.nutrition-section {
+  flex: 1;
+  min-width: 300px;
+}
+
+.recommendations-section {
+  flex: 1;
+  min-width: 300px;
+}
+
+@media (max-width: 992px) {
+  .nutrition-and-recommendations {
+    flex-direction: column;
+  }
+  
+  .nutrition-section,
+  .recommendations-section {
+    width: 100%;
+  }
 } 

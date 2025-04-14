@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field, EmailStr, validator
 from typing import Optional, List
 from datetime import datetime
+from enum import Enum
 
 # Token response models
 class Token(BaseModel):
@@ -35,6 +36,16 @@ class UserResponse(UserBase):
     class Config:
         orm_mode = True
 
+# Define HealthIssue enum
+class HealthIssue(str, Enum):
+    NONE = "none"
+    DIABETES = "diabetes"
+    OBESITY = "obesity"
+    CHOLESTEROL = "cholesterol"
+    HIGH_BP = "high-bp"
+    GLUTEN_INTOLERANCE = "gluten intolerance"
+    ACIDITY = "acidity"
+
 # Profile models
 class ProfileBase(BaseModel):
     name: str
@@ -42,7 +53,7 @@ class ProfileBase(BaseModel):
     number: str
     weight: float
     height: float
-    health_issues: Optional[str] = None
+    health_issues: Optional[HealthIssue] = None
     allergies: Optional[str] = None
     medications: Optional[str] = None
     blood_type: Optional[str] = None
@@ -62,7 +73,7 @@ class ProfileUpdate(BaseModel):
     number: Optional[str] = None
     weight: Optional[float] = None
     height: Optional[float] = None
-    health_issues: Optional[str] = None
+    health_issues: Optional[HealthIssue] = None
     allergies: Optional[str] = None
     medications: Optional[str] = None
     blood_type: Optional[str] = None

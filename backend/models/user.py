@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, Text, DateTime
+from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, Text, DateTime, Enum
 from sqlalchemy.orm import relationship
 import datetime
 from .database import Base
+from auth.models import HealthIssue
 
 class User(Base):
     __tablename__ = "users"
@@ -27,7 +28,7 @@ class UserProfile(Base):
     number = Column(String)  # Phone number
     weight = Column(Float)   # in kg
     height = Column(Float)   # in cm
-    health_issues = Column(Text, nullable=True)
+    health_issues = Column(Enum(HealthIssue), nullable=True)
     allergies = Column(Text, nullable=True)
     medications = Column(Text, nullable=True)
     blood_type = Column(String, nullable=True)

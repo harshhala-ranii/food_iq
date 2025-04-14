@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { updateUserProfile } from '../services/auth';
 import Navbar from '../components/Navbar';
 import '../styles/Profile.css';
+import { HealthIssue, HealthIssueLabels } from '../types/health';
 
 // Interface for user profile data
 interface UserProfile {
@@ -27,7 +28,10 @@ interface UserProfile {
 const Profile: React.FC = () => {
   const { user, profile, loading, logout } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
-  const [editedProfile, setEditedProfile] = useState<UserProfile>(profile || {} as UserProfile);
+  const [editedProfile, setEditedProfile] = useState<UserProfile>({
+    ...(profile || {} as UserProfile),
+    health_issues: HealthIssue.NONE
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -292,17 +296,25 @@ const Profile: React.FC = () => {
             <div className="profile-section">
               <h2>Health Information</h2>
               <div className="profile-grid">
-                <div className="profile-field full-width">
+                <div className="profile-field">
                   <span className="field-label">Health Issues</span>
                   {isEditing ? (
-                    <textarea 
+                    <select 
                       name="health_issues" 
-                      value={editedProfile.health_issues || ''} 
+                      value={editedProfile.health_issues || HealthIssue.NONE}
                       onChange={handleInputChange}
-                      placeholder="List any health issues"
-                    />
+                      className="form-control"
+                    >
+                      {Object.entries(HealthIssueLabels).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
                   ) : (
-                    <span className="field-value">{profile.health_issues || 'None specified'}</span>
+                    <span className="field-value">
+                      {editedProfile.health_issues ? HealthIssueLabels[editedProfile.health_issues as HealthIssue] : 'None'}
+                    </span>
                   )}
                 </div>
                 
