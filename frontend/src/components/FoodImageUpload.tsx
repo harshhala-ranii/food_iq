@@ -177,44 +177,58 @@ const FoodImageUpload: React.FC = () => {
       // Get the food prediction and volume calculation in a single API call
       const data = await predictFood(selectedFile);
       console.log('Full API Response:', data);
-      console.log('Recommendations data:', data.recommendations);
-      console.log('Recommendations type:', typeof data.recommendations);
-      console.log('Is recommendations null/undefined:', data.recommendations == null);
-      console.log('Is recommendations empty string:', data.recommendations === '');
-      console.log('Recommendations structure:', {
-        is_safe: data.recommendations?.is_safe,
-        warnings: data.recommendations?.warnings,
-        suggestions: data.recommendations?.suggestions,
-        approval_message: data.recommendations?.approval_message
-      });
       
-      // Make sure recommendations is an object with the expected structure
-      if (data.recommendations && typeof data.recommendations === 'object') {
-        // Ensure all required properties exist
-        if (!data.recommendations.hasOwnProperty('is_safe')) {
-          data.recommendations.is_safe = true;
+      // Process recommendations data to ensure it has the correct structure
+      let processedRecommendations = {
+        is_safe: true,
+        warnings: [],
+        suggestions: [],
+        approval_message: null
+      };
+      
+      if (data.recommendations) {
+        console.log('Raw recommendations:', data.recommendations);
+        
+        // If recommendations is a string, try to parse it
+        if (typeof data.recommendations === 'string') {
+          try {
+            const parsed = JSON.parse(data.recommendations);
+            if (parsed && typeof parsed === 'object') {
+              processedRecommendations = {
+                is_safe: parsed.is_safe !== undefined ? parsed.is_safe : true,
+                warnings: Array.isArray(parsed.warnings) ? parsed.warnings : [],
+                suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions : [],
+                approval_message: parsed.approval_message || null
+              };
+            }
+          } catch (e) {
+            console.error('Error parsing recommendations string:', e);
+            // If it's a string but not JSON, use it as the approval message
+            processedRecommendations.approval_message = data.recommendations;
+          }
+        } 
+        // If recommendations is an object, use it directly
+        else if (typeof data.recommendations === 'object') {
+          processedRecommendations = {
+            is_safe: data.recommendations.is_safe !== undefined ? data.recommendations.is_safe : true,
+            warnings: Array.isArray(data.recommendations.warnings) ? data.recommendations.warnings : [],
+            suggestions: Array.isArray(data.recommendations.suggestions) ? data.recommendations.suggestions : [],
+            approval_message: data.recommendations.approval_message || null
+          };
         }
-        if (!data.recommendations.hasOwnProperty('warnings')) {
-          data.recommendations.warnings = [];
-        }
-        if (!data.recommendations.hasOwnProperty('suggestions')) {
-          data.recommendations.suggestions = [];
-        }
-        if (!data.recommendations.hasOwnProperty('approval_message')) {
-          data.recommendations.approval_message = null;
-        }
-      } else {
-        // If recommendations is not an object, create a default one
-        data.recommendations = {
-          is_safe: true,
-          warnings: [],
-          suggestions: [],
-          approval_message: "No specific recommendations available for this food item."
-        };
       }
       
-      setResult(data);
-      console.log('Result state after setResult:', result);
+      console.log('Processed recommendations:', processedRecommendations);
+      
+      // Create a new result object with the processed recommendations
+      const processedResult = {
+        ...data,
+        recommendations: processedRecommendations
+      };
+      
+      // Set the result state with the processed data
+      setResult(processedResult);
+      console.log('Setting result state with:', processedResult);
 
       // Set volume result from the main prediction response
       if (data.volume_estimation && data.masked_image) {
