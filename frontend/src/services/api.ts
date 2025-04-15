@@ -40,10 +40,34 @@ export const getFoodClasses = async () => {
   }
 };
 
+export interface NutritionResponse {
+  nutrition: {
+    food_product: string;
+    amount: string;
+    energy: number;
+    carbohydrate: number;
+    protein: number;
+    total_fat: number;
+    sodium: number;
+    iron: number;
+  };
+  recommendations: {
+    is_safe: boolean;
+    warnings: string[];
+    suggestions: string[];
+    approval_message: string | null;
+  };
+}
+
 // Get nutrition information by food name
-export const getNutritionByFoodName = async (foodName: string) => {
+export const getNutritionByFoodName = async (foodName: string): Promise<NutritionResponse> => {
   try {
-    const response = await apiClient.get(`${API_CONFIG.ENDPOINTS.NUTRITION}/${encodeURIComponent(foodName)}`);
+    const token = localStorage.getItem('token');
+    const response = await apiClient.get(`${API_CONFIG.ENDPOINTS.NUTRITION}/${encodeURIComponent(foodName)}`, {
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      },
+    });
     return response.data;
   } catch (error) {
     console.error('Error fetching nutrition by food name:', error);

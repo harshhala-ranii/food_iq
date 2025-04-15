@@ -4,38 +4,31 @@ import NutritionFacts from './NutritionFacts';
 import NutritionalGuidance from './NutritionalGuidance';
 import './FoodImageUpload.css';
 
-// interface NutritionInfo {
-//   food_product: string;
-//   amount: string;
-//   energy: string;
-//   carbohydrate: string;
-//   protein: string;
-//   total_fat: string;
-//   sodium: string;
-//   iron: string;
-// }
+interface NutritionInfo {
+  food_product: string;
+  amount: string;
+  energy: number;
+  carbohydrate: number;
+  protein: number;
+  total_fat: number;
+  sodium: number;
+  iron: number;
+}
+
+interface Recommendations {
+  is_safe: boolean;
+  warnings: string[];
+  suggestions: string[];
+  approval_message: string | null;
+}
 
 interface PredictionResult {
   predicted_food: string;
   confidence: number;
-  nutrition: {
-    food_product: string;
-    amount: string;
-    energy: number;
-    carbohydrate: number;
-    protein: number;
-    total_fat: number;
-    sodium: number;
-    iron: number;
-  };
-  volume_estimation: number;
-  masked_image: string;
-  recommendations: {
-    is_safe: boolean;
-    warnings: string[];
-    suggestions: string[];
-    approval_message: string | null;
-  };
+  nutrition: NutritionInfo;
+  volume_estimation: number | null;
+  masked_image: string | null;
+  recommendations: Recommendations;
 }
 
 interface VolumeResult {
@@ -164,71 +157,35 @@ const FoodImageUpload: React.FC = () => {
     }
   };
 
-  const handleUpload = async () => {
-    if (!selectedFile) {
-      setError('Please select an image first');
-      return;
-    }
-
+  const handleImageUpload = async (file: File) => {
     setIsUploading(true);
     setError(null);
-
+    
     try {
-      // Get the food prediction and volume calculation in a single API call
-      const data = await predictFood(selectedFile);
-      console.log('Full API Response:', data);
+      const data = await predictFood(file);
       
-      // Process recommendations data to ensure it has the correct structure
-      let processedRecommendations = {
-        is_safe: true,
-        warnings: [],
-        suggestions: [],
-        approval_message: null
-      };
-      
-      if (data.recommendations) {
-        console.log('Raw recommendations:', data.recommendations);
-        
-        // If recommendations is a string, try to parse it
-        if (typeof data.recommendations === 'string') {
-          try {
-            const parsed = JSON.parse(data.recommendations);
-            if (parsed && typeof parsed === 'object') {
-              processedRecommendations = {
-                is_safe: parsed.is_safe !== undefined ? parsed.is_safe : true,
-                warnings: Array.isArray(parsed.warnings) ? parsed.warnings : [],
-                suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions : [],
-                approval_message: parsed.approval_message || null
-              };
-            }
-          } catch (e) {
-            console.error('Error parsing recommendations string:', e);
-            // If it's a string but not JSON, use it as the approval message
-            processedRecommendations.approval_message = data.recommendations;
-          }
-        } 
-        // If recommendations is an object, use it directly
-        else if (typeof data.recommendations === 'object') {
-          processedRecommendations = {
-            is_safe: data.recommendations.is_safe !== undefined ? data.recommendations.is_safe : true,
-            warnings: Array.isArray(data.recommendations.warnings) ? data.recommendations.warnings : [],
-            suggestions: Array.isArray(data.recommendations.suggestions) ? data.recommendations.suggestions : [],
-            approval_message: data.recommendations.approval_message || null
-          };
+      setResult({
+        predicted_food: data.predicted_food,
+        confidence: data.confidence,
+        nutrition: {
+          food_product: data.nutrition.food_product,
+          amount: data.nutrition.amount,
+          energy: data.nutrition.energy,
+          carbohydrate: data.nutrition.carbohydrate,
+          protein: data.nutrition.protein,
+          total_fat: data.nutrition.total_fat,
+          sodium: data.nutrition.sodium,
+          iron: data.nutrition.iron
+        },
+        volume_estimation: data.volume_estimation,
+        masked_image: data.masked_image,
+        recommendations: {
+          is_safe: data.recommendations.is_safe,
+          warnings: data.recommendations.warnings || [],
+          suggestions: data.recommendations.suggestions || [],
+          approval_message: data.recommendations.approval_message
         }
-      }
-      
-      console.log('Processed recommendations:', processedRecommendations);
-      
-      // Create a new result object with the processed recommendations
-      const processedResult = {
-        ...data,
-        recommendations: processedRecommendations
-      };
-      
-      // Set the result state with the processed data
-      setResult(processedResult);
-      console.log('Setting result state with:', processedResult);
+      });
 
       // Set volume result from the main prediction response
       if (data.volume_estimation && data.masked_image) {
@@ -240,8 +197,7 @@ const FoodImageUpload: React.FC = () => {
         });
       }
     } catch (err) {
-      console.error('Error uploading image:', err);
-      setError('Error analyzing image. Please try again.');
+      setError(err instanceof Error ? err.message : 'Failed to process image');
     } finally {
       setIsUploading(false);
     }
@@ -267,20 +223,16 @@ const FoodImageUpload: React.FC = () => {
     setShowSuggestions(false);
 
     try {
-      // Use the API service to fetch nutrition information by food name
-      const data = await getNutritionByFoodName(manualFoodName.trim());
+      const response = await getNutritionByFoodName(manualFoodName.trim());
       
-      // Create a result object similar to the image prediction result
       setResult({
-        predicted_food: data.nutrition.food_product,
-        confidence: 1.0, // 100% confidence since it's a manual entry
-        nutrition: data.nutrition,
-        volume_estimation: data.volume_estimation,
-        masked_image: data.masked_image,
-        recommendations: data.recommendations
+        predicted_food: manualFoodName,
+        confidence: 1.0,
+        nutrition: response.nutrition,
+        volume_estimation: null,
+        masked_image: null,
+        recommendations: response.recommendations
       });
-      
-      setIsManualSearch(true);
     } catch (err: any) {
       console.error('Manual search error:', err);
       setError(`Error: ${err.response?.data?.detail || err.message || 'Failed to fetch nutrition information'}`);
@@ -294,6 +246,62 @@ const FoodImageUpload: React.FC = () => {
     setResult(null);
     setError(null);
     setShowSuggestions(false);
+  };
+
+  const displayResults = () => {
+    if (!result) return null;
+    
+    return (
+      <div className="results-container">
+        <h3>Analysis Result</h3>
+        <p>Identified Food: {result.predicted_food}</p>
+        <p>Confidence: {(result.confidence * 100).toFixed(2)}%</p>
+        
+        {volumeResult && (
+          <div className="volume-result">
+            <h4>Volume Estimation</h4>
+            <p>Estimated Volume: {volumeResult.volume_estimation.toFixed(2)}g</p>
+            <div className="masked-image-container">
+              <h4>Food Mask</h4>
+              <img 
+                src={volumeResult.masked_image} 
+                alt="Masked Food" 
+                className="masked-image"
+              />
+            </div>
+          </div>
+        )}
+        
+        <div className="nutrition-and-recommendations">
+          <div className="nutrition-section">
+            {result.nutrition && (
+              <NutritionFacts 
+                nutrition={{
+                  ...result.nutrition,
+                  energy: result.nutrition.energy.toString(),
+                  carbohydrate: result.nutrition.carbohydrate.toString(),
+                  protein: result.nutrition.protein.toString(),
+                  total_fat: result.nutrition.total_fat.toString(),
+                  sodium: result.nutrition.sodium.toString(),
+                  iron: result.nutrition.iron.toString()
+                }} 
+              />
+            )}
+          </div>
+          
+          <div className="recommendations-section" style={{ border: '1px solid #ccc', padding: '20px', marginTop: '20px' }}>
+            <h4 style={{ color: '#333', marginBottom: '15px' }}>Nutritional Recommendations</h4>
+            {result.recommendations ? (
+              <div style={{ backgroundColor: '#f5f5f5', padding: '15px', borderRadius: '5px' }}>
+                <NutritionalGuidance guidance={result.recommendations} />
+              </div>
+            ) : (
+              <p>No recommendations available for this food item.</p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -333,7 +341,7 @@ const FoodImageUpload: React.FC = () => {
               </label>
               
               <button 
-                onClick={handleUpload} 
+                onClick={() => selectedFile && handleImageUpload(selectedFile)} 
                 disabled={!selectedFile || isUploading}
                 className="upload-button"
               >
@@ -418,67 +426,7 @@ const FoodImageUpload: React.FC = () => {
         </div>
       )}
       
-      {result && (
-        <div className="result-section">
-          <h3>Analysis Result</h3>
-          <p>Identified Food: {result.predicted_food}</p>
-          <p>Confidence: {(result.confidence * 100).toFixed(2)}%</p>
-          
-          {volumeResult && (
-            <div className="volume-result">
-              <h4>Volume Estimation</h4>
-              <p>Estimated Volume: {volumeResult.volume_estimation.toFixed(2)}g</p>
-              <div className="masked-image-container">
-                <h4>Food Mask</h4>
-                <img 
-                  src={volumeResult.masked_image} 
-                  alt="Masked Food" 
-                  className="masked-image"
-                />
-              </div>
-            </div>
-          )}
-          
-          <div className="nutrition-and-recommendations">
-            <div className="nutrition-section">
-              {result.nutrition && (
-                <NutritionFacts 
-                  nutrition={{
-                    ...result.nutrition,
-                    energy: result.nutrition.energy.toString(),
-                    carbohydrate: result.nutrition.carbohydrate.toString(),
-                    protein: result.nutrition.protein.toString(),
-                    total_fat: result.nutrition.total_fat.toString(),
-                    sodium: result.nutrition.sodium.toString(),
-                    iron: result.nutrition.iron.toString()
-                  }} 
-                />
-              )}
-            </div>
-            
-            <div className="recommendations-section" style={{ border: '1px solid #ccc', padding: '20px', marginTop: '20px' }}>
-              <h4 style={{ color: '#333', marginBottom: '15px' }}>Nutritional Recommendations</h4>
-              {result.recommendations ? (
-                (() => {
-                  console.log('Rendering recommendations:', {
-                    is_safe: result.recommendations.is_safe,
-                    warnings: result.recommendations.warnings,
-                    suggestions: result.recommendations.suggestions,
-                    approval_message: result.recommendations.approval_message
-                  });
-                  return (
-                    <div style={{ backgroundColor: '#f5f5f5', padding: '15px', borderRadius: '5px' }}>
-                      <NutritionalGuidance guidance={result.recommendations} />
-                    </div>
-                  );
-                })()
-              ) : (
-                <p>No recommendations available for this food item.</p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {displayResults()}
     </div>
   );
 };

@@ -1,13 +1,17 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Header
 from sqlalchemy.orm import Session
 import numpy as np
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 import logging
+from typing import Optional
+from jose import JWTError, jwt
 
 # Import from our modules
 from models.food import Food
 from models.database import get_db
 from models.food_queries import get_food_nutrition, display_food_details
+from models.user import UserProfile
+from utils.food_recommendations import FoodRecommendation
 
 # Create router
 router = APIRouter()
@@ -59,10 +63,43 @@ def generate_food_summary(food):
 
 # API Endpoint to Fetch Food Summary by Name
 @router.get("/summary/{food_name}")
-def get_food_summary(food_name: str, db: Session = Depends(get_db)):
+def get_food_summary(
+    food_name: str, 
+    db: Session = Depends(get_db),
+    authorization: Optional[str] = Header(None)
+):
     logger.debug(f"Received request for food: {food_name}")
     logger.debug(f"Food name type: {type(food_name)}")
     logger.debug(f"Food name value: '{food_name}'")
+    
+    # Get user health conditions if token is provided
+    user_health_conditions = []
+    if authorization and authorization.startswith('Bearer '):
+        token = authorization.split(' ')[1]
+        try:
+            # Use the exact same secret key as in auth.py
+            secret_key = "food_iq_secret_key"
+            
+            # Decode the JWT token
+            payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+            user_id = payload.get("sub")
+            logger.info(f"Decoded user_id from token: {user_id}")
+            
+            if user_id:
+                # Get user profile directly from database
+                logger.info(f"Querying user profile for user_id: {user_id}")
+                profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+                logger.info(f"User profile found: {profile is not None}")
+                
+                if profile and profile.health_issues:
+                    # Split health issues if they're comma-separated
+                    health_issues = [issue.strip() for issue in profile.health_issues.split(',')]
+                    user_health_conditions.extend(health_issues)
+                    logger.info(f"Found user health conditions: {user_health_conditions}")
+        except JWTError as e:
+            logger.error(f"JWT token validation failed: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error processing token: {str(e)}", exc_info=True)
     
     # Use get_food_nutrition from food_queries.py
     food_item = get_food_nutrition(food_name, db)
@@ -96,10 +133,17 @@ def get_food_summary(food_name: str, db: Session = Depends(get_db)):
         "iron": get_safe_attr(food_item, "iron")
     }
 
-    # Return the response with summary and nutrition
+    # Generate recommendations using FoodRecommendation class
+    logger.info(f"Generating recommendations for {food_name} with health conditions: {user_health_conditions}")
+    food_recommendation = FoodRecommendation(food_name, user_health_conditions)
+    recommendations = food_recommendation.evaluate()
+    logger.info(f"Generated recommendations: {recommendations}")
+
+    # Return the response with summary, nutrition, and recommendations
     return {
         "summary": generate_food_summary(food_data),
-        "nutrition": nutrition
+        "nutrition": nutrition,
+        "recommendations": recommendations
     }
 
 # API Endpoint to Get All Food Items
