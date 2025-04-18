@@ -11,7 +11,7 @@ from models.food import Food
 from models.database import get_db
 from models.food_queries import get_food_nutrition, display_food_details
 from models.user import UserProfile
-from utils.food_recommendations import FoodRecommendation
+from utils.food_recommendations import FoodRecommendation, safe_float
 
 # Create router
 router = APIRouter()
@@ -19,21 +19,6 @@ router = APIRouter()
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-# Function to safely convert float values
-def safe_float(value):
-    """Convert NaN or Infinity to None (JSON-compliant)."""
-    if value is None or isinstance(value, str):  
-        return value  # Return as is if it's a string
-    if np.isnan(value) or np.isinf(value):  
-        return None
-    return value
-
-# Function to safely get attribute value
-def get_safe_attr(obj, attr_name):
-    """Fetch attribute value safely, return None if missing or invalid."""
-    value = getattr(obj, attr_name, None)  # Get attribute safely
-    return round(value, 2) if isinstance(value, (int, float)) else None  # Ensure it's JSON-safe
 
 # Function to generate a user-friendly summary
 def generate_food_summary(food):
@@ -168,4 +153,9 @@ def get_all_foods(db: Session = Depends(get_db)):
             "iron": get_safe_attr(food, "iron")
         })
     
-    return {"foods": result} 
+    return {"foods": result}
+
+def get_safe_attr(obj, attr_name):
+    """Fetch attribute value safely, return None if missing or invalid."""
+    value = getattr(obj, attr_name, None)  # Get attribute safely
+    return safe_float(value)  # Use safe_float for all numeric values 

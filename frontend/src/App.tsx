@@ -7,6 +7,7 @@ import About from './pages/AboutPage';
 import GetStarted from './pages/GetStarted';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import HealthChatPage from './pages/HealthChatPage';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
@@ -27,6 +28,7 @@ const App: React.FC = () => {
           <Route path="/get-started" element={<GetStarted />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/chat" element={<HealthChatPage />} />
         </Routes>
       </Router>
     </AuthProvider>

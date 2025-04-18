@@ -36,7 +36,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     # Install authentication dependencies
     pip install --no-cache-dir python-jose[cryptography]==3.3.0 passlib[bcrypt]==1.7.4 && \
     # Install utility dependencies
-    pip install --no-cache-dir python-dotenv==1.0.0 python-multipart==0.0.6 email-validator==2.0.0 && \
+    pip install --no-cache-dir python-dotenv==1.0.0 python-multipart==0.0.6 email-validator==2.2.0 && \
     # Install ML dependencies in specific order
     pip install --no-cache-dir numpy==1.23.5 && \
     pip install --no-cache-dir scipy==1.10.1 && \
@@ -50,6 +50,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir transformers==4.33.3 && \
     pip install --no-cache-dir accelerate==0.23.0 && \
     pip install --no-cache-dir timm==0.9.2 && \
+    # Install OpenAI package
+    pip install --no-cache-dir openai==1.74.0 && \
     # Pre-download MiDaS model
     python -c "import torch; torch.hub.load('intel-isl/MiDaS', 'DPT_Large')" && \
     # Install development dependencies
@@ -62,7 +64,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
     python -c "import keras; print(f'Keras version: {keras.__version__}')" && \
     python -c "import cv2; print(f'OpenCV version: {cv2.__version__}')" && \
     python -c "import torchvision; print(f'torchvision version: {torchvision.__version__}')" && \
-    python -c "import timm; print(f'timm version: {timm.__version__}')"
+    python -c "import timm; print(f'timm version: {timm.__version__}')" && \
+    python -c "import openai; print(f'OpenAI version: {openai.__version__}')"
 
 # Pre-download MiDaS model
 RUN python -c "import torch; torch.hub.load('intel-isl/MiDaS', 'DPT_Large'); print('MiDaS model downloaded successfully')"
@@ -76,7 +79,7 @@ RUN mkdir -p /app/models && \
 
 # Create a healthcheck script
 RUN echo '#!/bin/bash\n\
-python -c "import tensorflow as tf; import numpy as np; import keras; import cv2; import torchvision; import timm; print(\"All ML dependencies working correctly\")"' > /app/healthcheck.sh && \
+python -c "import tensorflow as tf; import numpy as np; import keras; import cv2; import torchvision; import timm; import openai; print(\"All ML dependencies working correctly\")"' > /app/healthcheck.sh && \
     chmod +x /app/healthcheck.sh
 
 # Expose the port the app runs on

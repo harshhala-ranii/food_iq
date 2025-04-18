@@ -10,7 +10,8 @@ from sqlalchemy import text
 import logging
 from models.food_queries import get_food_nutrition
 from PIL import Image
-from utils.food_recommendations import FoodRecommendation
+from utils.food_recommendations import FoodRecommendation, safe_float
+from utils.food_recommendations_llm import FoodRecommendationLLM
 from models.database import get_db, SQLALCHEMY_DATABASE_URL
 from models.food import Food
 from models.food_queries import display_food_details
@@ -19,6 +20,9 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from typing import Optional
+import io
+import base64
+
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -329,8 +333,8 @@ async def predict_food_from_image(
     # Check database connection
     check_db_connection(db)
     
-    # Get user health conditions if token is provided
-    user_health_conditions = []
+    # Get user profile if token is provided
+    user_profile = None
     if token:
         try:
             logger.info("Attempting to decode JWT token")
@@ -349,16 +353,18 @@ async def predict_food_from_image(
                 logger.info(f"User profile found: {profile is not None}")
                 
                 if profile:
-                    logger.info(f"User profile health issues: {profile.health_issues}")
-                    if profile.health_issues:
-                        # Split health issues if they're comma-separated
-                        health_issues = [issue.strip() for issue in profile.health_issues.split(',')]
-                        user_health_conditions.extend(health_issues)
-                        logger.info(f"Found user health conditions: {user_health_conditions}")
-                    else:
-                        logger.info("No health issues found in user profile")
-                else:
-                    logger.warning(f"No user profile found for user_id: {user_id}")
+                    # Convert profile to dictionary
+                    user_profile = {
+                        "age": profile.age,
+                        "weight": profile.weight,
+                        "height": profile.height,
+                        "health_issues": profile.health_issues.value if profile.health_issues else None,
+                        "allergies": profile.allergies,
+                        "physical_activity_level": profile.physical_activity_level,
+                        "weight_goal": profile.weight_goal,
+                        "dietary_preferences": profile.dietary_preferences
+                    }
+                    logger.info(f"User profile loaded: {user_profile}")
         except JWTError as e:
             logger.error(f"JWT token validation failed: {str(e)}")
         except ValueError as e:
@@ -367,8 +373,6 @@ async def predict_food_from_image(
             logger.error(f"Error processing token: {str(e)}", exc_info=True)
     else:
         logger.warning("No token provided in request")
-    
-    logger.info(f"Final user health conditions: {user_health_conditions}")
     
     # Check if the file is a JPG/JPEG
     if not file.content_type in ["image/jpeg", "image/jpg"]:
@@ -391,19 +395,10 @@ async def predict_food_from_image(
         predicted_food, confidence = predict_food(temp_file_path)
         logger.info(f"Predicted food: {predicted_food} with confidence: {confidence}")
         
-        # Get food recommendations based on user health conditions
-        logger.info(f"Generating recommendations for {predicted_food} with health conditions: {user_health_conditions}")
-        food_recommendation = FoodRecommendation(predicted_food, user_health_conditions)
-        recommendations = food_recommendation.evaluate()
-        logger.info(f"Generated recommendations: {recommendations}")
-        
-        # Get nutritional information from database using the food_queries module
+        # Get nutritional information from database
         logger.info(f"Getting nutritional information for: {predicted_food}")
-        
-        # Try the imported function first
         nutrition = get_food_nutrition(predicted_food, db)
         
-        # If that fails, try the direct query function
         if nutrition is None:
             logger.warning(f"Imported get_food_nutrition failed, trying direct query for: {predicted_food}")
             nutrition = direct_get_food_nutrition(predicted_food, db)
@@ -413,7 +408,7 @@ async def predict_food_from_image(
         try:
             # Create a new BytesIO object from the saved contents
             logger.debug("Creating BytesIO object from image contents")
-            image_stream = BytesIO(contents)
+            image_stream = io.BytesIO(contents)
             
             logger.debug("Opening image with PIL and converting to RGB")
             image = Image.open(image_stream).convert("RGB")
@@ -462,7 +457,7 @@ async def predict_food_from_image(
             
             # Convert masked image to base64
             logger.debug("Converting masked image to base64")
-            masked_buffer = BytesIO()
+            masked_buffer = io.BytesIO()
             masked_image.save(masked_buffer, format="PNG")
             masked_image_base64 = base64.b64encode(masked_buffer.getvalue()).decode("utf-8")
             logger.debug("Successfully converted masked image to base64")
@@ -471,9 +466,9 @@ async def predict_food_from_image(
             if nutrition:
                 logger.debug("Adjusting nutrition values based on volume")
                 # Convert volume from ml to grams (assuming 1g/ml density)
-                volume_grams = volume_ml
+                volume_grams = safe_float(volume_ml)
                 # Calculate scale factor based on the difference from 150g (standard serving)
-                scale_factor = volume_grams / 150.0
+                scale_factor = safe_float(volume_grams / 150.0) if volume_grams is not None else None
                 logger.debug(f"Scale factor for nutrition adjustment: {scale_factor}")
                 
                 adjusted_nutrition = {
@@ -496,6 +491,24 @@ async def predict_food_from_image(
             logger.error("Stack trace:", exc_info=True)
             adjusted_nutrition = None
             masked_image_base64 = None
+        
+        # Generate recommendations using LLM
+        try:
+            logger.info("Generating LLM-based recommendations")
+            food_recommendation_llm = FoodRecommendationLLM()
+            recommendations = food_recommendation_llm.get_recommendation(
+                food_name=predicted_food,
+                food_nutrition=adjusted_nutrition or nutrition.to_dict() if nutrition else {},
+                user_profile=user_profile,
+                context=f"Estimated portion size: {volume_grams:.1f}g"
+            )
+            logger.info(f"Generated LLM recommendations: {recommendations}")
+        except Exception as e:
+            logger.error(f"Error generating LLM recommendations: {str(e)}")
+            # Fallback to rule-based recommendations
+            logger.info("Falling back to rule-based recommendations")
+            food_recommendation = FoodRecommendation(predicted_food, user_profile.get("health_issues") if user_profile else None)
+            recommendations = food_recommendation.evaluate()
         
         # Prepare response
         response = {
@@ -637,5 +650,3 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.depth_estimation import estimate_depth, create_mask, estimate_volume_from_depth, generate_masked_image
-import base64
-from io import BytesIO

@@ -13,7 +13,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models.database import engine, Base
 from models.user import User, UserProfile, UserFoodLog, FoodRecommendation
 from models.food import Food
-from endpoints import auth_endpoint, imageprocess, user_endpoint, food_router
+from endpoints import auth_endpoint, imageprocess, user_endpoint, food_router, chatbot
 
 # Load environment variables
 load_dotenv()
@@ -25,7 +25,13 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-logger.info("Starting Food IQ API")
+
+# Validate OpenAI API key
+openai_api_key = os.getenv("OPENAI_API_KEY")
+if not openai_api_key:
+    logger.error("OPENAI_API_KEY not found in environment variables")
+else:
+    logger.info("OpenAI API key is configured")
 
 app = FastAPI(
     title="Food IQ API",
@@ -62,6 +68,18 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+@app.get("/test-env")
+async def test_env():
+    """Test endpoint to verify environment variables"""
+    return {
+        "openai_api_key_exists": bool(os.getenv("OPENAI_API_KEY")),
+        "openai_api_key_prefix": os.getenv("OPENAI_API_KEY")[:10] + "..." if os.getenv("OPENAI_API_KEY") else None,
+        "environment": os.getenv("ENVIRONMENT"),
+        "all_env_vars": {k: v[:10] + "..." if k == "OPENAI_API_KEY" and v else v 
+                        for k, v in os.environ.items() 
+                        if not k.startswith("_")}
+    }
 
 # Direct LLM endpoint for testing (use with caution in production)
 if os.getenv("ENABLE_DIRECT_LLM_ENDPOINT", "false").lower() == "true":

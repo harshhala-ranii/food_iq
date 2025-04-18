@@ -1,0 +1,115 @@
+.health-chat-promo {
+  background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+  color: white;
+  padding: 60px 20px;
+  margin: 40px auto;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+}
+
+.health-chat-promo-content {
+  max-width: 800px;
+  margin: 0 auto;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+.health-chat-promo h2 {
+  font-size: 2.5rem;
+  margin-bottom: 20px;
+  font-weight: 600;
+  color: white;
+}
+
+.health-chat-promo p {
+  font-size: 1.2rem;
+  margin-bottom: 40px;
+  opacity: 0.9;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.health-chat-features {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  margin-bottom: 40px;
+  flex-wrap: wrap;
+}
+
+.feature {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 20px;
+  border-radius: 10px;
+  backdrop-filter: blur(5px);
+  min-width: 200px;
+}
+
+.feature-icon {
+  font-size: 2.5rem;
+}
+
+.feature-text {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.chat-button {
+  display: inline-block;
+  background-color: white;
+  color: #4a90e2;
+  padding: 15px 40px;
+  border-radius: 30px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  font-size: 1.1rem;
+}
+
+.chat-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+  background-color: #f8f9fa;
+}
+
+@media (max-width: 768px) {
+  .health-chat-promo {
+    padding: 40px 15px;
+    margin: 30px auto;
+  }
+
+  .health-chat-features {
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .health-chat-promo h2 {
+    font-size: 2rem;
+  }
+  
+  .health-chat-promo p {
+    font-size: 1.1rem;
+    margin-bottom: 30px;
+  }
+
+  .feature {
+    min-width: auto;
+    width: 100%;
+  }
+
+  .chat-button {
+    padding: 12px 30px;
+    font-size: 1rem;
+  }
+} 

@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import './Navbar.css';
+
 const Navbar: React.FC = () => {
   return (
     <nav className="navbar">
@@ -23,6 +24,11 @@ const Navbar: React.FC = () => {
         <li>
           <NavLink to="/profile" className={({ isActive }) => (isActive ? 'active' : '')}>
             Profile
+          </NavLink>
+        </li>
+        <li>
+          <NavLink to="/chat" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Health Chat
           </NavLink>
         </li>
         <li>

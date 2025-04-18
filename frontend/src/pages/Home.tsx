@@ -16,9 +16,11 @@ const Home: React.FC = () => {
   return (
     <div className={`home-page ${loaded ? 'loaded' : ''}`}>
       <Navbar />
-      <Title />
-      <HealthyEating />
-      <CalorieIntake />
+      <div className="home-content">
+        <Title />
+        <HealthyEating />
+        <CalorieIntake />
+      </div>
       <Footer />
     </div>
   );

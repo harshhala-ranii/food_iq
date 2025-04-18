@@ -1,7 +1,22 @@
 from typing import List, Dict, Optional
 import logging
+import numpy as np
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+def safe_float(value):
+    """Convert a value to a safe float for JSON serialization."""
+    if value is None:
+        return None
+    try:
+        float_value = float(value)
+        if np.isnan(float_value) or np.isinf(float_value):
+            return None
+        return float_value
+    except (ValueError, TypeError):
+        return None
 
 class FoodRecommendation:
     def __init__(self, food_name: str, user_conditions: List[str] = None, user_goals: Optional[List[str]] = None):
