@@ -1,249 +1,109 @@
-# Food IQ Application
+# Food IQ - Indian Food Recognition and Recommendation System
 
-A web application for retrieving nutritional information about food items and identifying Indian food from images.
-
-## Table of Contents
-1. [Features](#features)
-2. [Project Structure](#project-structure)
-3. [Prerequisites](#prerequisites)
-4. [Setup](#setup)
-   - [Environment Configuration](#environment-configuration)
-   - [Database Setup](#database-setup)
-   - [Model Setup](#model-setup)
-5. [Development](#development)
-   - [Using Makefile](#using-makefile)
-   - [Backend Development](#backend-development)
-   - [Frontend Development](#frontend-development)
-   - [Database Management](#database-management)
-6. [Deployment](#deployment)
-   - [Docker Deployment](#docker-deployment)
-   - [Local Deployment](#local-deployment)
-7. [API Documentation](#api-documentation)
-   - [Food Endpoints](#food-endpoints)
-   - [Image Processing Endpoints](#image-processing-endpoints)
-8. [Testing](#testing)
-9. [CI/CD Pipeline](#cicd-pipeline)
+A full-stack application for Indian food recognition and personalized food recommendations.
 
 ## Features
 
-- **Food Nutritional Information**: Get detailed nutritional information about various food items
-- **Food Image Recognition**: Upload an image of Indian food and get it identified using our trained CNN model
-- **Nutritional Information**: Get detailed nutritional facts for the identified food
-- **Manual Search**: Search for foods by name if you already know what you're eating
-- **Auto-suggestions**: Get food name suggestions as you type with keyboard navigation
-- **Responsive Design**: Works on desktop and mobile devices
-- **Database Management**: Tools for managing the food database, including removing duplicates and cleaning data
-
-## Project Structure
-
-```
-food_iq/
-├── backend/
-│   ├── models/
-│   │   ├── Indian_Food_CNN_Model.h5
-│   │   ├── database.py
-│   │   ├── food.py
-│   │   └── food_queries.py
-│   ├── endpoints/
-│   │   ├── food_router.py
-│   │   ├── imageprocess.py
-│   │   └── user_endpoint.py
-│   ├── db/
-│   │   ├── dbcreateandinsert.py
-│   │   └── database.py
-│   └── main.py
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   └── services/
-│   └── package.json
-├── docker-compose.yml
-├── Dockerfile
-└── README.md
-```
+- Food image recognition using CNN
+- Personalized food recommendations
+- Health condition-based dietary guidance
+- User profile management
+- Food logging and tracking
 
 ## Prerequisites
 
-- Python 3.9+
-- Node.js 20+ (via NVM recommended)
-- PostgreSQL 15+
-- Poetry (for Python dependency management)
-- Docker and Docker Compose (optional)
-- Make (for using the Makefile commands)
-- TensorFlow 2.x
-- SQLite (for development)
+- Docker and Docker Compose
+- Node.js (for local frontend development)
+- Python 3.8+ (for local backend development)
+- OpenAI API key
 
-## Setup
+## Environment Setup
 
-### Environment Configuration
-
-1. Create a `.env` file in the root directory:
-   ```env
-   DB_USERNAME=postgres
-   DB_PASSWORD=postgres
-   ```
-
-2. Create a `.env` file in the backend directory:
-   ```env
-   # Database Configuration
-   DATABASE_URL=sqlite:///./food_iq.db
-
-   # Model Configuration
-   MODEL_PATH=models/Indian_Food_CNN_Model.h5
-
-   # Server Configuration
-   PORT=8000
-   HOST=0.0.0.0
-   ```
-
-### Database Setup
-
-1. Initialize the database:
-   ```bash
-   make db-init
-   ```
-
-2. Remove duplicates (if needed):
-   ```bash
-   make db-remove-duplicates
-   ```
-
-### Model Setup
-
-1. Place the TensorFlow model file (`Indian_Food_CNN_Model.h5`) in the `backend/models` directory
-
-## Development
-
-### Using Makefile
-
+1. Clone the repository:
 ```bash
-# Show all available commands
-make help
-
-# Install dependencies
-make install
-
-# Format code
-make format
-make format-backend
-make format-frontend
-
-# Run tests
-make test
-make test-coverage
-
-# Database management
-make db-init
-make db-remove-duplicates
+git clone https://github.com/yourusername/food_iq.git
+cd food_iq
 ```
 
-### Backend Development
-
+2. Create environment files:
 ```bash
-# Install dependencies
-cd backend
-poetry install
+# Backend
+cp backend/.env.example backend/.env
 
-# Run server
-poetry run uvicorn main:app --reload
-
-# Format code
-poetry run black .
-
-# Run tests
-poetry run pytest
+# Frontend
+cp frontend/.env.example frontend/.env
 ```
 
-### Frontend Development
-
-```bash
-# Install dependencies
-cd frontend
-npm install
-
-# Run development server
-npm run dev
-
-# Format code
-npx prettier --write "src/**/*.{js,jsx,ts,tsx,json,css,scss,md}"
-
-# Check CSS syntax
-npx stylelint "src/**/*.css"
+3. Update the environment variables in `backend/.env`:
+```
+DB_USERNAME=your_db_username
+DB_PASSWORD=your_db_password
+DB_NAME=food_db
+DB_PORT=5432
+JWT_SECRET_KEY=your_jwt_secret_key
+OPENAI_API_KEY=your_openai_api_key
+PORT=8000
+ENVIRONMENT=development
 ```
 
-### Database Management
-
-```bash
-# Initialize database
-make db-init
-
-# Remove duplicates
-make db-remove-duplicates
+4. Update the environment variables in `frontend/.env`:
+```
+VITE_API_URL=http://localhost:8000
 ```
 
-## Deployment
+## Running with Docker
 
-### Docker Deployment
-
+1. Build and start the containers:
 ```bash
-# Start all services
-make docker-up
-
-# Stop all services
-make docker-down
+docker-compose up --build
 ```
 
-### Local Deployment
+2. The application will be available at:
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8000
+- Database: localhost:5432
 
-#### Backend
+## Development Setup
+
+### Backend
+
+1. Create a virtual environment:
 ```bash
 cd backend
-poetry install
-poetry run uvicorn main:app --reload
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
-#### Frontend
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+3. Run the development server:
+```bash
+uvicorn main:app --reload
+```
+
+### Frontend
+
+1. Install dependencies:
 ```bash
 cd frontend
 npm install
+```
+
+2. Run the development server:
+```bash
 npm run dev
 ```
 
-## API Documentation
+## Security Notes
 
-### Food Endpoints
+- Never commit `.env` files or sensitive credentials
+- Keep your OpenAI API key secure
+- Use strong passwords for database and JWT
+- Regularly update dependencies for security patches
 
-- `GET /food/summary/{food_name}`: Get nutritional summary for a food item
-- `GET /food/all`: Get all food items in the database
+## License
 
-### Image Processing Endpoints
-
-- `POST /image/predict`: Upload an image of food and get predictions with nutritional information
-- `GET /image/food-classes`: Get a list of all food classes that can be recognized
-
-## Testing
-
-```bash
-# Run all tests
-make test
-
-# Run tests with coverage
-make test-coverage
-
-# Run backend tests
-cd backend
-poetry run pytest
-```
-
-## CI/CD Pipeline
-
-The project uses GitHub Actions for continuous integration and deployment.
-
-### Pipeline Steps
-1. Lint and Test
-2. Build and Push Docker images
-
-### Required Secrets
-- `DOCKERHUB_USERNAME`
-- `DOCKERHUB_TOKEN` 
+MIT License 

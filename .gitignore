@@ -5,6 +5,8 @@
 .env.development
 .env.test
 .env.production
+backend/.env
+frontend/.env
 
 # Python
 __pycache__/
@@ -70,4 +72,15 @@ coverage
 # Temporary files
 *.tmp
 *.temp
-.cache/ 
+.cache/
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Model files
+*.h5
+*.pkl
+*.model
+models/
+backend/models/ 

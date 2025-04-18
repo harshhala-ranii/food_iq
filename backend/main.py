@@ -40,7 +40,7 @@ app = FastAPI(
 )
 
 # Configure CORS
-origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
+origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000,http://localhost").split(",")
 logger.info(f"Configuring CORS with allowed origins: {origins}")
 
 app.add_middleware(
@@ -54,8 +54,9 @@ app.add_middleware(
 # Include routers
 app.include_router(auth_endpoint.router)
 app.include_router(user_endpoint.router)
-app.include_router(imageprocess.router, prefix="/image", tags=["image"])
-app.include_router(food_router.router, prefix="/food", tags=["food"])
+app.include_router(imageprocess.router, prefix="/api/image", tags=["image"])
+app.include_router(food_router.router, prefix="/api/food", tags=["food"])
+app.include_router(chatbot.router, prefix="/api/chat", tags=["chat"])
 
 @app.get("/")
 async def root():
