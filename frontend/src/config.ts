@@ -7,16 +7,16 @@ export const API_CONFIG = {
   
   // Endpoints
   ENDPOINTS: {
-    PREDICT_FOOD: '/api/image/predict',
-    FOOD_CLASSES: '/api/image/food-classes',
-    NUTRITION: '/api/food/summary',
-    CHAT: '/api/chat/message',
+    PREDICT_FOOD: '/image/predict',
+    FOOD_CLASSES: '/image/food-classes',
+    NUTRITION: '/food/summary',
+    CHAT: '/chat/message',
     AUTH: {
-      LOGIN: '/api/auth/token',
-      REGISTER: '/api/auth/register',
-      REGISTER_WITH_PROFILE: '/api/auth/register-with-profile',
-      CURRENT_USER: '/api/auth/users/me',
-      USER_PROFILE: '/api/auth/users/me/profile',
+      LOGIN: '/auth/token',
+      REGISTER: '/auth/register',
+      REGISTER_WITH_PROFILE: '/auth/register-with-profile',
+      CURRENT_USER: '/auth/users/me',
+      USER_PROFILE: '/auth/users/me/profile',
     }
   },
 };
